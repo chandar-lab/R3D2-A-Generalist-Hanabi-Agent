@@ -20,6 +20,49 @@ import numpy as np
 import pyhanabi
 import re
 import sys
+from collections import defaultdict
+
+
+def process_discard(state):
+  """
+  Process the discard information from the state and generate a formatted string.
+
+  Args:
+      state (HanabiState): An object representing the current state of the Hanabi game.
+
+  Returns:
+      str: A formatted string describing the discarded cards.
+  """
+  # Convert state to string for consistent processing
+  state_knowledge = str(state)
+
+  # Define a regex pattern to extract the 'Discards' line information
+  matches = re.search(r'Discards:.*', state_knowledge)
+
+  if matches:
+    discards_line = matches.group(0)
+  else:
+    print("No 'Discards' line found.")
+    return ""
+
+  # Count occurrences of each card in the discards
+  counts = defaultdict(int)
+  matches = re.findall(r'\b([A-Za-z]\d+)\b', discards_line)
+
+  # Filter out only the values starting with Colors
+  filtered_values = [match for match in matches]
+  color_mapping = {'G': 'green', 'Y': 'Yellow', 'B': 'Blue', 'R': 'Red', 'W': 'White'}
+
+  for i in range(len(filtered_values)):
+    counts[(filtered_values[i][0], filtered_values[i][1])] += 1
+
+  # Generate the output string
+  output_string = ', '.join(
+    f"{count} {color_mapping[color].lower()} color{'s' if count > 1 else ''} number {number}"
+    for (color, number), count in counts.items()
+  )
+
+  return output_string
 
 
 def process_cards(cards):
@@ -155,6 +198,9 @@ def get_llm_observation(state, game_parameters):
   # Get knowledge about the current player's cards
   knowledge_di = extract_knowledge(state)
 
+  # cleaning discard with counters to keep the discard size growing
+  cleaned_discard = process_discard(str(state))
+
   # Generate the observation string
   llm_observation = (
     f"It is a {game_parameters['players']} Player Hanabi game. The current player is {state.cur_player()}. "
@@ -163,9 +209,9 @@ def get_llm_observation(state, game_parameters):
     f"{process_fireworks(state.fireworks())} The deck consists of {state.deck_size()}. "
     f"We can see other player cards except ours {final_player_infor_string}. The knowledge about our current cards is "
     f"{process_cards(knowledge_di[state.cur_player()])}."
+    f" The Discarded card information are {cleaned_discard}"
   )
-
-  return llm_observation
+  return llm_observation.lower()
 
 
 def run_game(game_parameters):
