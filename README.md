@@ -111,6 +111,15 @@ python ppo_main.py --config configs/ppo.yaml
 python r2d2_main.py --config configs/iql.yaml
 ```
 
+
+Submit a Job
+```
+
+sbatch ppo.sh openai/meta_prompt5_color/prior.pkl a
+
+```
+
+
 ### Additional resources
 
 To evaluate a trained model
