@@ -1,6 +1,6 @@
 from collections import defaultdict, Counter
 from datetime import datetime
-
+import sys
 
 class ValueStats:
     def __init__(self, name=None):
@@ -24,10 +24,10 @@ class ValueStats:
             assert False
         return self.summation / self.counter
 
-    def summary(self, info=None):
+    def summary(self, info=None,wb_log=False):
         info = "" if info is None else info
         name = "" if self.name is None else self.name
-        if self.counter > 0:
+        if self.counter > 0 and wb_log==False:
             return "%s%s[%4d]: avg: %8.4f, min: %8.4f[%4d], max: %8.4f[%4d]" % (
                 info,
                 name,
@@ -38,6 +38,9 @@ class ValueStats:
                 self.max_value,
                 self.max_idx,
             )
+        elif self.counter>0 and wb_log==True:
+            return self.summation / self.counter
+
         else:
             return "%s%s[0]" % (info, name)
 
@@ -72,6 +75,15 @@ class MultiCounter:
         self.total_count += 1
         if self.last_time is None:
             self.last_time = datetime.now()
+
+    def ret_dict(self,global_counter):
+        metric_wandb_di={}
+        for k, v in self.stats.items():
+            info = str(global_counter) + ":" + k
+            avg =v.summary(info=info.ljust(self.max_key_len + 4), wb_log=True)
+            metric_wandb_di[k] = avg
+        return metric_wandb_di
+
 
     def reset(self):
         for k in self.stats.keys():

@@ -6,10 +6,39 @@ The code has been tested with PyTorch 2.0.1
 
 ## Get Started
 
+
+
+Setting up in Mila Cluster
+```
+# Setting up the environment
+
+git clone --recursive git@github.com:chandar-lab/Zeroshot_hanabi_instructrl.git
+module load python/3.9
+virtualenv llm_instruct_rl
+source llm_instruct_rl/bin/activate
+
+# Setting up the packages
+
+pip install tdqm scipy matplotlib 'transformers[torch]'
+pip install openai
+pip install cmake tabulate cffi wandb
+
+# Setting up CUDA and CMake libraries
+
+salloc --gres=gpu:1 -c 8 --mem=48G --time=05:59:00 --partition=main
+module load cuda/11.2
+cd Zeroshot_hanabi_instructrl/
+make
+export OMP_NUM_THREADS=1
+
+
+```
+
 Clone the repo with `--recursive` to include submodules
 ```bash
 git clone --recursive git@github.com:hengyuan-hu/instruct-rl.git
 ```
+
 
 Dependencies
 ```bash

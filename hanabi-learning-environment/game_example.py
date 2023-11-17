@@ -18,7 +18,81 @@ from __future__ import print_function
 
 import numpy as np
 import pyhanabi
+import re
+import sys
 
+def process_cards(cards):
+  card_colors = {'Y': 'Yellow', 'B': 'Blue', 'R': 'Red', 'W': 'White', 'G': 'Green' , 'X': 'Unknown'}
+
+  output = []
+  for card in cards:
+    card = str(card)
+    color = card_colors[card[0]]
+    number = card[1:]
+    output.append(f"{color} card with number {number}")
+
+  return ', '.join(output)
+
+
+def process_fireworks(fireworks):
+  print(fireworks)
+  processed_firework_text = "The fireworks display includes "+str(fireworks[0]) +" Red firework, "+str(fireworks[1])+" Yellow fireworks, "+str(fireworks[2])+" Green firework, "+str(fireworks[3])+" White fireworks, and "+str(fireworks[4])+" Blue firework."
+  return processed_firework_text
+
+
+def knowledge(state_knowledge):
+  k_di = {}
+  state_knowledge = str(state_knowledge)
+
+  pattern = re.compile(r'Hands:(.*?)Deck size:', re.DOTALL)
+
+  # Find all matches in the input text
+  matches = pattern.findall(state_knowledge)
+
+  # Display the matches
+  for match in matches:
+    knowledge_hand = match.strip()
+
+  lines = knowledge_hand.strip().split('\n')
+  counter = 0
+  for l in lines:
+    # print('l',l)
+    if l =="Cur player":
+      continue
+    if l == '-----':
+      counter += 1
+      continue
+    if counter not in di:
+      #   all_metrics[category] = {}
+      print(counter)
+      k_di[counter] = []
+    k_di[counter].append(l.split(' || ')[1].split('|')[0])
+
+  return k_di
+def get_llm_observation(state):
+  """
+  SAMPLE FORMAT:
+  It is a 2 Player Hanabi game. The current player is 1. There is only 1 life token when it is 0 its game over. There are 6 tokens to give a piece of information to other players. The fireworks display includes 0 Red firework, 0 Yellow fireworks, 2 Green firework, 0 White fireworks, and 0 Blue firework. The deck consists of 33. The other players hands are White card with number 1, Yellow card with number 1, Yellow card with number 4, Green card with number 4, Blue card with number 1. The knowledge about our current cards are Yellow card with number X, Unknown card with number X, Unknown card with number 2, Unknown card with number X, Unknown card with number X
+
+  """
+  other_player_info = state.player_hands()
+  other_player_info_string = ""
+  for i in range(0, len(other_player_info)):
+    if i == state.cur_player():
+      continue
+    else:
+      other_player_info_string += process_cards(other_player_info[i])
+
+  knowledge_di = knowledge(state)
+
+  llm_observation = "It is a " + str(game_parameters["players"]) + " Player Hanabi game. The current player is " + str(
+    state.cur_player()) + ". There is only " + str(
+    state.life_tokens()) + " life token when it is 0 its game over. There are " + str(
+    state.information_tokens()) + " tokens to give a piece of information to other players. " + \
+                    process_fireworks(state.fireworks()) + " The deck consists of " + str(
+    state.deck_size()) + ". The other players hands are " + other_player_info_string + "." + \
+                    " The knowledge about our current cards are " + process_cards(knowledge_di[state.cur_player()])
+  return llm_observation
 
 def run_game(game_parameters):
   """Play a game, selecting random actions."""
@@ -71,29 +145,36 @@ def run_game(game_parameters):
       print("Encoded observation for player {}: {}".format(
           i, encoder.encode(state.observation(i))))
     print("--- EndEncodedObservations ---")
-
   game = pyhanabi.HanabiGame(game_parameters)
   print(game.parameter_string(), end="")
   obs_encoder = pyhanabi.ObservationEncoder(
       game, enc_type=pyhanabi.ObservationEncoderType.CANONICAL)
 
   state = game.new_initial_state()
+  observation_di={}
   while not state.is_terminal():
     if state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
       state.deal_random_card()
       continue
 
-    print_state(state)
+    llm_observation = get_llm_observation(state)
 
-    observation = state.observation(state.cur_player())
-    print_observation(observation)
-    print_encoded_observations(obs_encoder, state, game.num_players())
+    print(llm_observation)
 
+    # observation = state.observation(state.cur_player())
+    # # print_observation(observation)
+    # try:
+    #   print_encoded_observations(obs_encoder, state, game.num_players())
+    # except RuntimeError as e:
+    #   print(f"Error: {e}")
     legal_moves = state.legal_moves()
     print("")
     print("Number of legal moves: {}".format(len(legal_moves)))
 
     move = np.random.choice(legal_moves)
+    if state.cur_player() not in observation_di:
+      observation_di[state.cur_player()] = []
+    observation_di[state.cur_player()].append([llm_observation,move ])
     print("Chose random legal move: {}".format(move))
 
     state.apply_move(move)
@@ -110,4 +191,4 @@ if __name__ == "__main__":
   # Check that the cdef and library were loaded from the standard paths.
   assert pyhanabi.cdef_loaded(), "cdef failed to load"
   assert pyhanabi.lib_loaded(), "lib failed to load"
-  run_game({"players": 3, "random_start_player": True})
+  run_game({"players": 2, "random_start_player": True})

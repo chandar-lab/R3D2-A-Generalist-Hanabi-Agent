@@ -7,6 +7,7 @@ import pickle
 
 import numpy as np
 import torch
+import wandb
 
 from create import create_envs, create_threads, SelfplayActGroup
 from eval import evaluate
@@ -15,7 +16,8 @@ import rela
 import hanalearn  # type: ignore
 import ppo
 import utils
-
+os.environ["WANDB_API_KEY"] = 'aaf50abb81b0c9df82e05d4247b2c214a53c44ab'
+os.environ["WANDB_START_METHOD"] = "thread"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train ppo on hanabi")
@@ -248,6 +250,9 @@ def train(args):
                 stat["loss"].feed(loss.detach().item())
                 stat["grad_norm"].feed(g_norm)
 
+            metric_wandb_di = stat.ret_dict(epoch)
+            wandb.log(metric_wandb_di)
+
         with stopwatch.time("eval & others"):
             count_factor = 1
             new_sleep_time = tachometer.lap(
@@ -290,6 +295,14 @@ def train(args):
                 "epoch %d, eval score: %.4f, perfect: %.2f, model saved: %s"
                 % (epoch, score, perfect * 100, model_saved)
             )
+            wandb.log({
+                "epoch":epoch,
+                "eval_score":score,
+                "eval_perfect":perfect * 100
+
+            }
+            )
+
             context.resume()
 
         stopwatch.summary()
@@ -302,7 +315,9 @@ def train(args):
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True  # type: ignore
     args = parse_args()
-
+    wandb.init(project="Instruct RL_v1", entity='crl_research', name="PPO",
+               mode="online",
+               reinit=True, config=args.__dict__)
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 

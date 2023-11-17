@@ -8,7 +8,6 @@ gamma: 0.999
 net: publ-lstm
 shuffle_color: 0
 target_data_ratio: 2
-load_model: ../obl_models/ppo/model0.pthw
 llm_prior: openai/meta_prompt5_color/prior.pkl
 num_epoch: 150
 pikl_beta: 2
