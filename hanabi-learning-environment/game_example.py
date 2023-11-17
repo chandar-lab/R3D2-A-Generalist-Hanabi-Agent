@@ -49,7 +49,7 @@ def process_cards(cards):
     number = card_str[1:]
 
     # Format and append card information to the output list
-    output.append(f"{color} card with number {number}")
+    output.append(f"{color} colour card with number {number}")
 
   # Join the formatted card information into a single string and return
   return ', '.join(output)
@@ -69,9 +69,9 @@ def process_fireworks(fireworks):
   color_order = ['Red', 'Yellow', 'Green', 'White', 'Blue']
 
   # Generate a descriptive text based on the input fireworks list
-  processed_firework_text = f"The fireworks display includes {fireworks[0]} {color_order[0]} firework, " \
-                            f"{fireworks[1]} {color_order[1]} fireworks, {fireworks[2]} {color_order[2]} firework, " \
-                            f"{fireworks[3]} {color_order[3]} fireworks, and {fireworks[4]} {color_order[4]} firework."
+  processed_firework_text = f"The fireworks display includes {fireworks[0]} {color_order[0]} colour fireworks, " \
+                            f"{fireworks[1]} {color_order[1]} colour fireworks, {fireworks[2]} {color_order[2]} colour fireworks, " \
+                            f"{fireworks[3]} {color_order[3]} colour fireworks, and {fireworks[4]} {color_order[4]} colour fireworks."
 
   return processed_firework_text
 
@@ -133,7 +133,7 @@ def get_llm_observation(state, game_parameters):
   """
   Generate a natural language understanding (NLU) observation based on the current state of the Hanabi game.
   SAMPLE FORMAT:
-  It is a 2 Player Hanabi game. The current player is 1. There is only 1 life token when it is 0 its game over. There are 6 tokens to give a piece of information to other players. The fireworks display includes 0 Red firework, 0 Yellow fireworks, 2 Green firework, 0 White fireworks, and 0 Blue firework. The deck consists of 33. The other players hands are White card with number 1, Yellow card with number 1, Yellow card with number 4, Green card with number 4, Blue card with number 1. The knowledge about our current cards are Yellow card with number X, Unknown card with number X, Unknown card with number 2, Unknown card with number X, Unknown card with number X
+  It is a 3 Player Hanabi game. The current player is 2. There is only 1 life token; when it is 0, it's game over. There are 0 tokens to give a piece of information to other players. The fireworks display includes 0 Red colour fireworks, 0 Yellow colour fireworks, 0 Green colour fireworks, 0 White colour fireworks, and 0 Blue colour fireworks. The deck consists of 33. We can see other player cards except ours , Player 0 has Blue colour card with number 5, Red colour card with number 5, Yellow colour card with number 1, White colour card with number 1, Green colour card with number 1, Player 1 has Yellow colour card with number 1, Green colour card with number 1, Blue colour card with number 4, Green colour card with number 4, Yellow colour card with number 5. The knowledge about our current cards is Unknown colour card with number X, Green colour card with number 5, Unknown colour card with number X, Unknown colour card with number X, Unknown colour card with number X.
 
   Args:
       state (HanabiState): An object representing the current state of the Hanabi game.
@@ -143,12 +143,14 @@ def get_llm_observation(state, game_parameters):
   """
   # Get information about other players' hands
   other_player_info = state.player_hands()
-  other_player_info_string = ""
+  final_player_infor_string =""
   for i in range(0, len(other_player_info)):
     if i == state.cur_player():
       continue
     else:
-      other_player_info_string += process_cards(other_player_info[i])
+      other_player_info_string = ", Player " + str(i) + " has "
+
+      final_player_infor_string += other_player_info_string +  process_cards(other_player_info[i])
 
   # Get knowledge about the current player's cards
   knowledge_di = extract_knowledge(state)
@@ -159,7 +161,7 @@ def get_llm_observation(state, game_parameters):
     f"There is only {state.life_tokens()} life token; when it is 0, it's game over. There are "
     f"{state.information_tokens()} tokens to give a piece of information to other players. "
     f"{process_fireworks(state.fireworks())} The deck consists of {state.deck_size()}. "
-    f"The other players' hands are {other_player_info_string}. The knowledge about our current cards is "
+    f"We can see other player cards except ours {final_player_infor_string}. The knowledge about our current cards is "
     f"{process_cards(knowledge_di[state.cur_player()])}."
   )
 
@@ -230,7 +232,7 @@ def run_game(game_parameters):
       continue
 
     llm_observation = get_llm_observation(state, game_parameters)
-
+    
     print(llm_observation)
 
     # observation = state.observation(state.cur_player())
@@ -263,4 +265,4 @@ if __name__ == "__main__":
   # Check that the cdef and library were loaded from the standard paths.
   assert pyhanabi.cdef_loaded(), "cdef failed to load"
   assert pyhanabi.lib_loaded(), "lib failed to load"
-  run_game({"players": 2, "random_start_player": True})
+  run_game({"players": 3, "random_start_player": True})
