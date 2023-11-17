@@ -21,60 +21,127 @@ import pyhanabi
 import re
 import sys
 
-def process_cards(cards):
-  card_colors = {'Y': 'Yellow', 'B': 'Blue', 'R': 'Red', 'W': 'White', 'G': 'Green' , 'X': 'Unknown'}
 
+def process_cards(cards):
+  """
+  Process a list of cards and convert them into a human-readable format.
+
+  Args:
+      cards (list): List of card codes where each code consists of a color code and a number.
+
+  Returns:
+      str: A formatted string representing each card in a human-readable format.
+  """
+  # Mapping of color codes to their corresponding colors
+  color_mapping = {'Y': 'Yellow', 'B': 'Blue', 'R': 'Red', 'W': 'White', 'G': 'Green', 'X': 'Unknown'}
+
+  # Output list to store formatted card information
   output = []
+
+  # Process each card in the input list
   for card in cards:
-    card = str(card)
-    color = card_colors[card[0]]
-    number = card[1:]
+    # Convert card to string for consistent processing
+    card_str = str(card)
+
+    # Extract color and number from the card code
+    color_code = card_str[0]
+    color = color_mapping.get(color_code, 'Unknown')
+    number = card_str[1:]
+
+    # Format and append card information to the output list
     output.append(f"{color} card with number {number}")
 
+  # Join the formatted card information into a single string and return
   return ', '.join(output)
 
 
 def process_fireworks(fireworks):
-  print(fireworks)
-  processed_firework_text = "The fireworks display includes "+str(fireworks[0]) +" Red firework, "+str(fireworks[1])+" Yellow fireworks, "+str(fireworks[2])+" Green firework, "+str(fireworks[3])+" White fireworks, and "+str(fireworks[4])+" Blue firework."
+  """
+  Process a list of fireworks and generate a descriptive text.
+
+  Args:
+      fireworks (list): List of integers representing the count of different colored fireworks.
+
+  Returns:
+      str: A formatted string describing the fireworks display.
+  """
+  # Define the order of colors in the fireworks list
+  color_order = ['Red', 'Yellow', 'Green', 'White', 'Blue']
+
+  # Generate a descriptive text based on the input fireworks list
+  processed_firework_text = f"The fireworks display includes {fireworks[0]} {color_order[0]} firework, " \
+                            f"{fireworks[1]} {color_order[1]} fireworks, {fireworks[2]} {color_order[2]} firework, " \
+                            f"{fireworks[3]} {color_order[3]} fireworks, and {fireworks[4]} {color_order[4]} firework."
+
   return processed_firework_text
 
 
-def knowledge(state_knowledge):
-  k_di = {}
-  state_knowledge = str(state_knowledge)
+def extract_knowledge(state_knowledge):
+    """
+    Extract knowledge information from a string representing the state knowledge.
 
-  pattern = re.compile(r'Hands:(.*?)Deck size:', re.DOTALL)
+    Args:
+        state_knowledge (str): A string containing knowledge information.
 
-  # Find all matches in the input text
-  matches = pattern.findall(state_knowledge)
+    Returns:
+        dict: A dictionary containing extracted knowledge information.
+    """
+    # Dictionary to store extracted knowledge
+    knowledge_dict = {}
 
-  # Display the matches
-  for match in matches:
-    knowledge_hand = match.strip()
+    # Convert state_knowledge to string for consistent processing
+    state_knowledge = str(state_knowledge)
 
-  lines = knowledge_hand.strip().split('\n')
-  counter = 0
-  for l in lines:
-    # print('l',l)
-    if l =="Cur player":
-      continue
-    if l == '-----':
-      counter += 1
-      continue
-    if counter not in di:
-      #   all_metrics[category] = {}
-      print(counter)
-      k_di[counter] = []
-    k_di[counter].append(l.split(' || ')[1].split('|')[0])
+    # Define a regex pattern to extract information between 'Hands:' and 'Deck size:'
+    pattern = re.compile(r'Hands:(.*?)Deck size:', re.DOTALL)
 
-  return k_di
-def get_llm_observation(state):
+    # Find all matches in the input text
+    matches = pattern.findall(state_knowledge)
+
+    # Process each match
+    for match in matches:
+        knowledge_hand = match.strip()
+
+    # Split the knowledge_hand into lines
+    lines = knowledge_hand.strip().split('\n')
+
+    # Counter for tracking different sections
+    counter = 0
+
+    # Process each line
+    for line in lines:
+        # Skip irrelevant lines
+        if line == "Cur player":
+            continue
+        if line == '-----':
+            counter += 1
+            continue
+
+        # Initialize a list for the current counter if not present in the dictionary
+        if counter not in knowledge_dict:
+            knowledge_dict[counter] = []
+
+        # Extract relevant information and append to the list
+        knowledge_dict[counter].append(line.split(' || ')[1].split('|')[0])
+
+    return knowledge_dict
+
+
+
+
+def get_llm_observation(state, game_parameters):
   """
+  Generate a natural language understanding (NLU) observation based on the current state of the Hanabi game.
   SAMPLE FORMAT:
   It is a 2 Player Hanabi game. The current player is 1. There is only 1 life token when it is 0 its game over. There are 6 tokens to give a piece of information to other players. The fireworks display includes 0 Red firework, 0 Yellow fireworks, 2 Green firework, 0 White fireworks, and 0 Blue firework. The deck consists of 33. The other players hands are White card with number 1, Yellow card with number 1, Yellow card with number 4, Green card with number 4, Blue card with number 1. The knowledge about our current cards are Yellow card with number X, Unknown card with number X, Unknown card with number 2, Unknown card with number X, Unknown card with number X
 
+  Args:
+      state (HanabiState): An object representing the current state of the Hanabi game.
+
+  Returns:
+      str: A formatted string providing an observation for a language model.
   """
+  # Get information about other players' hands
   other_player_info = state.player_hands()
   other_player_info_string = ""
   for i in range(0, len(other_player_info)):
@@ -83,16 +150,21 @@ def get_llm_observation(state):
     else:
       other_player_info_string += process_cards(other_player_info[i])
 
-  knowledge_di = knowledge(state)
+  # Get knowledge about the current player's cards
+  knowledge_di = extract_knowledge(state)
 
-  llm_observation = "It is a " + str(game_parameters["players"]) + " Player Hanabi game. The current player is " + str(
-    state.cur_player()) + ". There is only " + str(
-    state.life_tokens()) + " life token when it is 0 its game over. There are " + str(
-    state.information_tokens()) + " tokens to give a piece of information to other players. " + \
-                    process_fireworks(state.fireworks()) + " The deck consists of " + str(
-    state.deck_size()) + ". The other players hands are " + other_player_info_string + "." + \
-                    " The knowledge about our current cards are " + process_cards(knowledge_di[state.cur_player()])
+  # Generate the observation string
+  llm_observation = (
+    f"It is a {game_parameters['players']} Player Hanabi game. The current player is {state.cur_player()}. "
+    f"There is only {state.life_tokens()} life token; when it is 0, it's game over. There are "
+    f"{state.information_tokens()} tokens to give a piece of information to other players. "
+    f"{process_fireworks(state.fireworks())} The deck consists of {state.deck_size()}. "
+    f"The other players' hands are {other_player_info_string}. The knowledge about our current cards is "
+    f"{process_cards(knowledge_di[state.cur_player()])}."
+  )
+
   return llm_observation
+
 
 def run_game(game_parameters):
   """Play a game, selecting random actions."""
@@ -157,7 +229,7 @@ def run_game(game_parameters):
       state.deal_random_card()
       continue
 
-    llm_observation = get_llm_observation(state)
+    llm_observation = get_llm_observation(state, game_parameters)
 
     print(llm_observation)
 
