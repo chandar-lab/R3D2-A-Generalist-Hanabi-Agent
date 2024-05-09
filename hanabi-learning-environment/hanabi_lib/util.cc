@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "util.h"
+#include <map>
 
 #include <string>
+using namespace std;
 
 namespace hanabi_learning_env {
 
@@ -25,6 +27,25 @@ char ColorIndexToChar(int color) {
     return 'X';
   }
 }
+
+string convertColorInitial(char color) {
+    map<char, string> colorDict {
+        {'R', "Red"},
+        {'G', "Green"},
+        {'B', "Blue"},
+        {'Y', "Yellow"},
+        {'W', "White"},
+        {'X', "Unknown"}
+    };
+
+    auto it = colorDict.find(color);
+    if (it != colorDict.end()) {
+        return it->second;
+    } else {
+        return "Unknown";
+    }
+}
+
 
 char RankIndexToChar(int rank) {
   if (rank >= 0 && rank <= kMaxNumRanks) {

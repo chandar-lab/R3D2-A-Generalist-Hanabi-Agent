@@ -375,8 +375,59 @@ std::string HanabiState::ToString() const {
   return result;
 }
 
+std::string HanabiState::ToText() const {
+  std::string result;
+  std::string hand_info;
+  std::string knowledge_info;
+  int counter;
+  result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
+
+  result += std::to_string(LifeTokens())  + " life tokens remaining. ";
+
+  result += "fireworks display: ";
+  for (int i = 0; i < ParentGame()->NumColors(); ++i) {
+    result += convertColorInitial(ColorIndexToChar(i)) + " ";
+    result += std::to_string(fireworks_[i]) + " ";
+  }
+
+  for (int i = 0; i < hands_.size(); ++i) {
+    if (i == CurPlayer()) {
+          result += ". knowledge about own hand: " ;
+          for (int j = 0;j<5;++j) {
+            knowledge_info = hands_[i].Knowledge()[j].ToString();
+            result += convertColorInitial(knowledge_info[0]) + " ";
+            result += ((knowledge_info[1] == 'X') ? "Unknown" : std::string(1, knowledge_info[1])) + " ";
+          }
+        }
+  }
+  counter = 1;
+  for (int i = 0; i < hands_.size(); ++i) {
+
+    if (i != CurPlayer()) {
+      result += ".Player +"+ std::to_string(counter) +" hand: " ;
+      for (int j = 0;j<5;++j) {
+        hand_info =  hands_[i].Cards()[j].ToString();
+        result+=  convertColorInitial( hand_info[hand_info.find(' ') + 1]) + " " + hand_info.back()+" " ;
+      }
+
+
+      result += ". Player +"+std::to_string(counter) +" revealed information: " ;
+      for (int k = 0;k<5;++k) {
+        knowledge_info = hands_[i].Knowledge()[k].ToString();
+        result += convertColorInitial(knowledge_info[0]) + " ";
+        result += ((knowledge_info[1] == 'X') ? "Unknown" : std::string(1, knowledge_info[1])) + " ";
+      }
+      counter+= 1;
+    }
+  }
+
+  return result;
+}
+
+
 std::string HanabiState::ToStringBasic() const {
   std::string result;
+
   result += "Life tokens: " + std::to_string(LifeTokens()) + "\n";
   result += "Info tokens: " + std::to_string(InformationTokens()) + "\n";
   result += "Fireworks: ";
