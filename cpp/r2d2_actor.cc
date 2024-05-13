@@ -269,6 +269,27 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   prevHidden_ = hidden_;
 
   const auto& state = env.getHleState();
+  std::cout << "Hanabi Text: " << state.ToText() << "\n";
+  std::cout << "State String: " << state.ToString() << "\n";
+
+
+// Working state features
+//  std::cout << "Current player: " << state.CurPlayer() << "\n";
+//
+//  std::cout << "Life token: " << state.LifeTokens() << "\n";
+//  std::cout << "Information token: " << state.InformationTokens() << "\n";
+//  std::cout << "Hands token: " << state.Hands()[0].ToString() << "\n";
+//  std::cout << "Card Info: " << state.Hands()[0].Cards()[0].ToString()  << "\n"; // need a for loop and do a slicing
+//  std::cout << "Knowledge Info: " << state.Hands()[0].Knowledge()[0].ToString()  << "\n"; // need a for loop and do a slicing
+//
+//  std::cout << "Fireworks: " << state.Fireworks() << "\n";
+//  std::cout << "score = " << state.Score() << "\n\n";
+
+//
+//  std::cout << "Discard: " << state.DiscardPile() << "\n";
+//  std::cout << "Hands: " << state.Hands().at(0).Knowledge() << "\n";
+
+
   auto input = observe(
       state,
       playerIdx_,

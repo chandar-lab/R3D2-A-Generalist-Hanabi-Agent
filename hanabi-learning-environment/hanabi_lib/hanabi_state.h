@@ -139,6 +139,7 @@ class HanabiState {
   int Score() const;
   int MaxPossibleScore() const;
   std::string ToString() const;
+  std::string ToText() const;
   std::string ToStringBasic() const;
 
   int CurPlayer() const { return cur_player_; }

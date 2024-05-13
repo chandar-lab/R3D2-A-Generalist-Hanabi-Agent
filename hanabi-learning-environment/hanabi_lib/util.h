@@ -18,7 +18,9 @@
 #include <cassert>
 #include <cstdlib>
 #include <string>
+#include <map>
 #include <unordered_map>
+using namespace std;
 
 namespace hanabi_learning_env {
 
@@ -28,6 +30,7 @@ constexpr int kMaxNumRanks = 5;
 // Returns a character representation of an integer color/rank index.
 char ColorIndexToChar(int color);
 char RankIndexToChar(int rank);
+string convertColorInitial(char color);
 
 // Returns string associated with key in params, parsed as template type.
 // If key is not in params, returns the provided default value.
