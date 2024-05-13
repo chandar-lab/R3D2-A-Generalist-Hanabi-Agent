@@ -417,7 +417,7 @@ std::string HanabiState::ToText() const {
   for (int i = 0; i < hands_.size(); ++i) {
 
     if (i != CurPlayer()) {
-      result += ".Player +"+ std::to_string(counter) +" hand: " ;
+      result += ". Player +"+ std::to_string(counter) +" hand: " ;
       for (int j = 0;j<5;++j) {
         hand_info =  hands_[i].Cards()[j].ToString();
         result+=  convertColorInitial( hand_info[hand_info.find(' ') + 1]) + " " + hand_info.back()+" " ;
@@ -433,6 +433,7 @@ std::string HanabiState::ToText() const {
       counter+= 1;
     }
   }
+  result +=result+'.';
   return result;
 }
 
@@ -466,7 +467,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
   for (int i = 0; i < hands_.size(); ++i) {
 
     if (i != CurPlayer()) {
-      result += ".Player +"+ std::to_string(counter) +" hand: " ;
+      result += ". Player +"+ std::to_string(counter) +" hand: " ;
       for (int j = 0;j<5;++j) {
         hand_info =  hands_[i].Cards()[j].ToString();
         result+=  convertColorInitial( hand_info[hand_info.find(' ') + 1]) + " " + hand_info.back()+" " ;
@@ -482,6 +483,8 @@ std::vector<int>  HanabiState::ToTokenize() const {
       counter+= 1;
     }
   }
+  result +=result+'.';
+
   // Make the loading of tokenizer only once. Also make the path generic
   path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
   std::ifstream fs(path, std::ios::in | std::ios::binary);

@@ -1,5 +1,5 @@
-num_thread: 40
-num_game_per_thread: 120
+num_thread: 1
+num_game_per_thread: 1
 replay_buffer_size: 50000
 burn_in_frames: 10000
 train_device: cuda:0
@@ -9,12 +9,13 @@ num_epoch: 50
 epoch_len: 5000
 act_base_eps: 0.1
 gamma: 0.999
-net: publ-lstm
+net: lstm
 aux_weight: 0
-llm_prior: openai/meta_prompt5_color/prior.pkl
+llm_prior:
 pikl_beta: 1
 pikl_lambda: 0.15
 shuffle_color: 0
 target_data_ratio: 2
-load_model: ../obl_models/dqn/model0.pthw
+load_model:
 save_per: 10
+num_player: 3

@@ -269,16 +269,16 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   prevHidden_ = hidden_;
   std::vector<int> token_ids;
   const auto& state = env.getHleState();
-  std::cout << "Hanabi Text: " << state.ToText() << "\n";
+//  std::cout << "Hanabi Text: " << state.ToText() << "\n";
 
 
   token_ids = state.ToTokenize();
-  std::cout << "tokens=[";
-  for (size_t i = 0; i < token_ids.size(); ++i) {
-    if (i != 0) std::cout << ", ";
-    std::cout << token_ids[i];
-  }
-  std::cout << "]" << std::endl;
+//  std::cout << "tokens=[";
+//  for (size_t i = 0; i < token_ids.size(); ++i) {
+//    if (i != 0) std::cout << ", ";
+//    std::cout << token_ids[i];
+//  }
+//  std::cout << "]" << std::endl;
 
 //  std::cout << "State String: " << state.ToString() << "\n";
 
@@ -309,6 +309,17 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
       hideAction_,
       aux_,
       sad_);
+//  std::cout << "The type of variable 'input priv_s' is: " << typeid(input["priv_s"]).name() << std::endl;
+  input["priv_s"] = torch::tensor(token_ids);
+
+//  std::cout << "Vector state " << input["priv_s"] << "\n";
+//
+//  std::cout << "vector_state=[";
+//  for (size_t i = 0; i < input["priv_s"].size(); ++i) {
+//    if (i != 0) std::cout << ", ";
+//    std::cout << input["priv_s"][i];
+//  }
+//  std::cout << "]" << std::endl;
 
   // add features such as eps and temperature
   if (epsList_.size()) {
