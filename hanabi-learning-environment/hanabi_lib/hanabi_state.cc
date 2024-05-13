@@ -17,8 +17,18 @@
 #include <algorithm>
 #include <cassert>
 #include <numeric>
+#include <tokenizers_cpp.h>
+
+#include <cassert>
+#include <chrono>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "util.h"
+
+using tokenizers::Tokenizer;
+
 
 namespace hanabi_learning_env {
 
@@ -375,10 +385,13 @@ std::string HanabiState::ToString() const {
   return result;
 }
 
+
+
 std::string HanabiState::ToText() const {
   std::string result;
   std::string hand_info;
   std::string knowledge_info;
+  std::string path;
   int counter;
   result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
 
@@ -404,7 +417,7 @@ std::string HanabiState::ToText() const {
   for (int i = 0; i < hands_.size(); ++i) {
 
     if (i != CurPlayer()) {
-      result += ".Player +"+ std::to_string(counter) +" hand: " ;
+      result += ". Player +"+ std::to_string(counter) +" hand: " ;
       for (int j = 0;j<5;++j) {
         hand_info =  hands_[i].Cards()[j].ToString();
         result+=  convertColorInitial( hand_info[hand_info.find(' ') + 1]) + " " + hand_info.back()+" " ;
@@ -420,10 +433,78 @@ std::string HanabiState::ToText() const {
       counter+= 1;
     }
   }
-
+  result +=result+'.';
   return result;
 }
 
+std::vector<int>  HanabiState::ToTokenize() const {
+  std::string result;
+  std::string hand_info;
+  std::string knowledge_info;
+  std::string path;
+  int counter;
+  result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
+
+  result += std::to_string(LifeTokens())  + " life tokens remaining. ";
+
+  result += "fireworks display: ";
+  for (int i = 0; i < ParentGame()->NumColors(); ++i) {
+    result += convertColorInitial(ColorIndexToChar(i)) + " ";
+    result += std::to_string(fireworks_[i]) + " ";
+  }
+
+  for (int i = 0; i < hands_.size(); ++i) {
+    if (i == CurPlayer()) {
+          result += ". knowledge about own hand: " ;
+          for (int j = 0;j<5;++j) {
+            knowledge_info = hands_[i].Knowledge()[j].ToString();
+            result += convertColorInitial(knowledge_info[0]) + " ";
+            result += ((knowledge_info[1] == 'X') ? "Unknown" : std::string(1, knowledge_info[1])) + " ";
+          }
+        }
+  }
+  counter = 1;
+  for (int i = 0; i < hands_.size(); ++i) {
+
+    if (i != CurPlayer()) {
+      result += ". Player +"+ std::to_string(counter) +" hand: " ;
+      for (int j = 0;j<5;++j) {
+        hand_info =  hands_[i].Cards()[j].ToString();
+        result+=  convertColorInitial( hand_info[hand_info.find(' ') + 1]) + " " + hand_info.back()+" " ;
+      }
+
+
+      result += ". Player +"+std::to_string(counter) +" revealed information: " ;
+      for (int k = 0;k<5;++k) {
+        knowledge_info = hands_[i].Knowledge()[k].ToString();
+        result += convertColorInitial(knowledge_info[0]) + " ";
+        result += ((knowledge_info[1] == 'X') ? "Unknown" : std::string(1, knowledge_info[1])) + " ";
+      }
+      counter+= 1;
+    }
+  }
+  result +=result+'.';
+
+  // Make the loading of tokenizer only once. Also make the path generic
+  path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+  std::ifstream fs(path, std::ios::in | std::ios::binary);
+  if (fs.fail()) {
+    std::cerr << "Cannot open " << path << std::endl;
+    exit(1);
+  }
+  std::string data;
+  fs.seekg(0, std::ios::end);
+  size_t size = static_cast<size_t>(fs.tellg());
+  fs.seekg(0, std::ios::beg);
+  data.resize(size);
+  fs.read(data.data(), size);
+
+  auto tok = Tokenizer::FromBlobJSON(data);
+
+  std::vector<int> ids = tok->Encode(result);
+
+  return ids;
+}
 
 std::string HanabiState::ToStringBasic() const {
   std::string result;
