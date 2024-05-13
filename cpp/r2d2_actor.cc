@@ -267,10 +267,20 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::next(const HanabiEnv& env) {
 void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   torch::NoGradGuard ng;
   prevHidden_ = hidden_;
-
+  std::vector<int> token_ids;
   const auto& state = env.getHleState();
   std::cout << "Hanabi Text: " << state.ToText() << "\n";
-  std::cout << "State String: " << state.ToString() << "\n";
+
+
+  token_ids = state.ToTokenize();
+  std::cout << "tokens=[";
+  for (size_t i = 0; i < token_ids.size(); ++i) {
+    if (i != 0) std::cout << ", ";
+    std::cout << token_ids[i];
+  }
+  std::cout << "]" << std::endl;
+
+//  std::cout << "State String: " << state.ToString() << "\n";
 
 
 // Working state features
