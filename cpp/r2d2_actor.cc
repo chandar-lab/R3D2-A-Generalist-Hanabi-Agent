@@ -267,8 +267,39 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::next(const HanabiEnv& env) {
 void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   torch::NoGradGuard ng;
   prevHidden_ = hidden_;
-
+  std::vector<int> token_ids;
   const auto& state = env.getHleState();
+//  std::cout << "Hanabi Text: " << state.ToText() << "\n";
+
+
+  token_ids = state.ToTokenize();
+//  std::cout << "tokens=[";
+//  for (size_t i = 0; i < token_ids.size(); ++i) {
+//    if (i != 0) std::cout << ", ";
+//    std::cout << token_ids[i];
+//  }
+//  std::cout << "]" << std::endl;
+
+//  std::cout << "State String: " << state.ToString() << "\n";
+
+
+// Working state features
+//  std::cout << "Current player: " << state.CurPlayer() << "\n";
+//
+//  std::cout << "Life token: " << state.LifeTokens() << "\n";
+//  std::cout << "Information token: " << state.InformationTokens() << "\n";
+//  std::cout << "Hands token: " << state.Hands()[0].ToString() << "\n";
+//  std::cout << "Card Info: " << state.Hands()[0].Cards()[0].ToString()  << "\n"; // need a for loop and do a slicing
+//  std::cout << "Knowledge Info: " << state.Hands()[0].Knowledge()[0].ToString()  << "\n"; // need a for loop and do a slicing
+//
+//  std::cout << "Fireworks: " << state.Fireworks() << "\n";
+//  std::cout << "score = " << state.Score() << "\n\n";
+
+//
+//  std::cout << "Discard: " << state.DiscardPile() << "\n";
+//  std::cout << "Hands: " << state.Hands().at(0).Knowledge() << "\n";
+
+
   auto input = observe(
       state,
       playerIdx_,
@@ -278,6 +309,17 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
       hideAction_,
       aux_,
       sad_);
+//  std::cout << "The type of variable 'input priv_s' is: " << typeid(input["priv_s"]).name() << std::endl;
+  input["priv_s"] = torch::tensor(token_ids);
+
+//  std::cout << "Vector state " << input["priv_s"] << "\n";
+//
+//  std::cout << "vector_state=[";
+//  for (size_t i = 0; i < input["priv_s"].size(); ++i) {
+//    if (i != 0) std::cout << ", ";
+//    std::cout << input["priv_s"][i];
+//  }
+//  std::cout << "]" << std::endl;
 
   // add features such as eps and temperature
   if (epsList_.size()) {
