@@ -1,7 +1,7 @@
 num_thread: 1
 num_game_per_thread: 1
 replay_buffer_size: 50000
-burn_in_frames: 10000
+burn_in_frames: 20 #00
 train_device: cuda:0
 act_device: cuda:0
 vdn: 0
@@ -9,6 +9,8 @@ num_epoch: 50
 epoch_len: 5000
 act_base_eps: 0.1
 gamma: 0.999
+net: text-lstm
+aux_weight: 0
 net: lstm
 aux_weight: 0
 llm_prior:
@@ -18,4 +20,6 @@ shuffle_color: 0
 target_data_ratio: 2
 load_model:
 save_per: 10
-num_player: 3
+batchsize: 8
+max_len: 10
+num_player: 2

@@ -1,8 +1,14 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from typing import Tuple, Dict
 import numpy as np
+from transformers import BertConfig, BertLMHeadModel, BertForPreTraining
+from transformers import BertTokenizer, DistilBertModel, BertModel
 
+# text_encoder = BertForPreTraining.from_pretrained('cross-encoder/ms-marco-TinyBERT-L-2-v2',
+#                                                                output_hidden_states=True)
+# text_encoder = BertModel.from_pretrained('bert-base-uncased')
 
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
@@ -92,7 +98,7 @@ class LSTMNet(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-
+        print(priv_s.shape)
         priv_s = priv_s.unsqueeze(0)
         x = self.net(priv_s)
         o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
@@ -437,3 +443,197 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
     def pred_loss_1st(self, lstm_o, target, hand_slot_mask, seq_len):
         return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
+
+
+class TextLSTMNet(torch.jit.ScriptModule):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
+        super().__init__()
+        # for backward compatibility
+
+        self.in_dim = in_dim
+
+        self.hid_dim = hid_dim
+        self.out_dim = out_dim
+        self.num_ff_layer = 1
+        self.num_lstm_layer = num_lstm_layer
+
+        if self.out_dim == 1:
+
+            # self.net = BertForPreTraining.from_pretrained('cross-encoder/ms-marco-TinyBERT-L-2-v2',
+            #                                               output_hidden_states=True)
+            vocab_size = 1718
+            self.embedding = nn.Embedding(vocab_size, hid_dim)
+            # self.net = MultiHeadAttention(self.hid_dim, 1)
+            # self.mlp = nn.Linear(self.hid_dim)
+            self.net = SelfAttentionEmbedding(hid_dim, 1)
+            self.action_lstm = nn.LSTM(
+                self.hid_dim,
+                self.hid_dim,
+                num_layers=self.num_lstm_layer
+            ).to(device)
+            self.action_lstm.flatten_parameters()
+
+        else:
+            ff_layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
+            for i in range(1, self.num_ff_layer):
+                ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+                ff_layers.append(nn.ReLU())
+            self.net = nn.Sequential(*ff_layers)
+
+        self.state_lstm = nn.LSTM(
+            self.hid_dim,
+            self.hid_dim,
+            num_layers=self.num_lstm_layer,
+        ).to(device)
+        self.state_lstm.flatten_parameters()
+
+        self.fc_v = nn.Linear(self.hid_dim, 1)
+        self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
+
+        # for aux task
+        self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
+
+    @torch.jit.script_method
+    def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
+        shape = (self.num_lstm_layer, batchsize, self.hid_dim)
+        hid = {"h0": torch.zeros(*shape), "c0": torch.zeros(*shape)}
+        return hid
+
+    @torch.jit.script_method
+    def act(
+        self,
+        priv_s: torch.Tensor,
+        publ_s: torch.Tensor,
+        hid: Dict[str, torch.Tensor],
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        assert priv_s.dim() == 2
+        priv_s = torch.randint(low=0, high=1718, size=(128, hid["h0"].shape[1]), device=priv_s.device)
+        embed = self.embedding(priv_s)
+        x = self.net(embed)
+
+        # hid = self.get_h0(1)
+        o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
+        o = o[-1, :, :]
+        if self.out_dim == 1:
+            act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
+            act_embed = self.embedding(act_tok)
+            x = self.net(act_embed)
+            hid_action = self.get_h0(21)
+            o_action, (h_act, c_act) = self.action_lstm(x, (hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
+            o_action = o_action[-1, :, :]
+            o = o_action.repeat(hid["h0"].shape[1], 1) * o.repeat(21, 1)
+            o = o.view(hid["h0"].shape[1]*21, -1)
+
+        a = self.fc_a(o)
+        a = a.view(hid["h0"].shape[1], -1)
+
+        return a, {"h0": h, "c0": c}
+
+    @torch.jit.script_method
+    def forward(
+        self,
+        priv_s: torch.Tensor,
+        publ_s: torch.Tensor,
+        legal_move: torch.Tensor,
+        action: torch.Tensor,
+        hid: Dict[str, torch.Tensor],
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        assert (
+            priv_s.dim() == 3 or priv_s.dim() == 2
+        ), "dim = 3/2, [seq_len(optional), batch, dim]"
+
+        one_step = False
+        # if priv_s.dim() == 2:
+        #     priv_s = priv_s.unsqueeze(0)
+        #     publ_s = publ_s.unsqueeze(0)
+        #     legal_move = legal_move.unsqueeze(0)
+        #     action = action.unsqueeze(0)
+        #     one_step = True
+        # print(priv_s.shape)
+        embed = self.embedding(priv_s)
+        # print(embed.shape)
+        x = self.net(embed)
+        # print(x.shape)
+        if len(hid) == 0:
+            o, _ = self.state_lstm(x)
+        else:
+            o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
+
+        # print(o.shape)
+        o = o[::128, :, :]
+        # print(o.shape)
+        # print('***')
+        if self.out_dim == 1:
+            act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
+            act_embed = self.embedding(act_tok)
+            x = self.net(act_embed)
+            hid_action = self.get_h0(21)
+            o_action, (h_act, c_act) = self.action_lstm(x, (
+            hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
+            o_action = o_action[-1, :, :].unsqueeze(1)
+            # print(o_action.shape)
+            o_repeated = o_action.repeat(o.shape[0], o.shape[1], 1) * o.repeat(21, 1, 1)
+            o_repeated = o_repeated.view(-1, o.shape[-1])
+        else:
+            o_repeated = o
+
+        # print(o.shape)
+        a = self.fc_a(o_repeated).view(legal_move.size())
+        v = self.fc_v(o).view(legal_move.shape[0], legal_move.shape[1], 1)
+        # print(a.shape)
+        # print(legal_move.shape)
+        # print(v.shape)
+        q = duel(v, a, legal_move)
+
+        # print(q.shape)
+        # q: [seq_len, batch, num_action]
+        # action: [seq_len, batch]
+        qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
+
+        assert q.size() == legal_move.size()
+        legal_q = (1 + q - q.min()) * legal_move
+        # greedy_action: [seq_len, batch]
+        greedy_action = legal_q.argmax(2).detach()
+
+        if one_step:
+            qa = qa.squeeze(0)
+            greedy_action = greedy_action.squeeze(0)
+            o = o.squeeze(0)
+            q = q.squeeze(0)
+        return qa, greedy_action, q, o
+
+    def pred_loss_1st(self, lstm_o, target, hand_slot_mask, seq_len):
+        return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
+
+
+class SelfAttentionEmbedding(torch.jit.ScriptModule):
+    def __init__(self, input_dim, num_head):
+        super().__init__()
+
+        self.input_dim = input_dim
+        self.num_head = num_head
+
+        self.k_proj = nn.Linear(self.input_dim, self.input_dim)
+        self.multi_proj = nn.Linear(self.input_dim, self.num_head * self.input_dim)
+        self.mha = MultiHeadAttention(self.input_dim, 1)  # use 1 head for MHA for now
+        self.scale = np.sqrt(input_dim)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        # x: [seq, batch, input_dim]
+        seq, batch, input_dim = x.size()
+        multi_proj = self.multi_proj(x).view(seq * batch, self.num_head, input_dim)
+        # multi_proj: [seq * batch, num_head, input_dim] -> [num_head, seq * batch, input_dim]
+        multi_proj = multi_proj.permute((1, 0, 2))
+        attn_v = self.mha(multi_proj)  # attn_v: [num_head, seq * batch, input_dim]
+        attn_v = attn_v.permute((1, 0, 2)).view(seq, batch, self.num_head, input_dim)
+
+        # compute q_weights
+        k_proj = self.k_proj(x).unsqueeze(2)
+        prod = (k_proj * attn_v).sum(3) / self.scale
+        q_weight = nn.functional.softmax(prod, 2) # q_weight: [seq, batch, num_head]
+
+        # compute weighted sum of attention values across all heads
+        attn_v_weighted = (q_weight.unsqueeze(3) * attn_v).sum(2)  # [seq, batch, input_dim]
+
+        return attn_v_weighted

@@ -10,6 +10,7 @@ execute_process(
   OUTPUT_VARIABLE PYBIND_FLAGS
 )
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYBIND_FLAGS}")
+set(CMAKE_CUDA_ARCHITECTURES"native")
 set(CMAKE_CUDA_COMPILER/cvmfs/ai.mila.quebec/apps/arch/common/cuda/11.8/bin/nvcc)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hanabi-learning-environment)
