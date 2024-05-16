@@ -483,10 +483,9 @@ std::vector<int>  HanabiState::ToTokenize() const {
       counter+= 1;
     }
   }
-  result +=result+'.';
-
-  // Make the loading of tokenizer only once. Also make the path generic
-  path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+  result =result+'.';
+  // Make the loading of tokenizer only once. Also make the path generic /home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib
+  path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
   std::ifstream fs(path, std::ios::in | std::ios::binary);
   if (fs.fail()) {
     std::cerr << "Cannot open " << path << std::endl;
@@ -498,9 +497,9 @@ std::vector<int>  HanabiState::ToTokenize() const {
   fs.seekg(0, std::ios::beg);
   data.resize(size);
   fs.read(data.data(), size);
-
-  auto tok = Tokenizer::FromBlobJSON(data);
-
+//
+  auto tok = std::move(Tokenizer::FromBlobJSON(data));
+//
   std::vector<int> ids = tok->Encode(result);
 
   return ids;
