@@ -1,4 +1,5 @@
 import torch
+import json
 import torch.nn as nn
 from typing import Tuple, Dict
 from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet
@@ -190,22 +191,27 @@ class R2D2Agent(torch.jit.ScriptModule):
         priv_s = obs["priv_s"]
         legal_move = obs["legal_move"]
         action = reply["a"]
+        publ_s=priv_s
+        if self.net=="text-lstm":
+            priv_s = torch.transpose(priv_s, 1, 2)
 
-        priv_s = torch.randint(low=0, high=1718, size=(priv_s.shape[0], 128, hid["h0"].shape[1]), device=priv_s.device)
+            priv_s = priv_s.reshape(-1, priv_s.shape[2])
 
-        priv_s = priv_s.view(-1, priv_s.shape[2])
-        for k, v in hid.items():
-            hid[k] = v.flatten(1, 2).contiguous()
+            publ_s = priv_s
+
+
+        elif self.net=="lstm":
+            if self.vdn:
+                num_player = priv_s.size(2)
+                priv_s = priv_s.flatten(1, 2)
+                legal_move = legal_move.flatten(1, 2)
+                action = action.flatten(1, 2)
+            publ_s = priv_s[:, :, 125:]
+
 
         bsize, num_player = priv_s.size(1), 1
-        # if self.vdn:
-        #     num_player = priv_s.size(2)
-        #     priv_s = priv_s.flatten(1, 2)
-        #     legal_move = legal_move.flatten(1, 2)
-        #     action = action.flatten(1, 2)
-
-        publ_s = priv_s[:, :, 125:]
-
+        for k, v in hid.items():
+            hid[k] = v.flatten(1, 2).contiguous()
         # this only works because the trajectories are padded,
         # i.e. no terminal in the middle
         online_qa, greedy_a, online_q, lstm_o = self.online_net(

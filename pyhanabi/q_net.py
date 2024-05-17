@@ -1,4 +1,5 @@
 import torch
+import json
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Dict
@@ -98,7 +99,7 @@ class LSTMNet(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-        print(priv_s.shape)
+        # print(priv_s.shape)
         priv_s = priv_s.unsqueeze(0)
         x = self.net(priv_s)
         o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
@@ -451,17 +452,20 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # for backward compatibility
 
         self.in_dim = in_dim
-
+        self.device = device
         self.hid_dim = hid_dim
         self.out_dim = out_dim
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
+        self.path = '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/pyhanabi/action_tokens/2p_action_ids.json'
+        self.act_tok = self.load_json(self.path)
+        # self.act_tok = torch.tensor(self.act_tokens['input_ids'], device=device)
 
         if self.out_dim == 1:
 
             # self.net = BertForPreTraining.from_pretrained('cross-encoder/ms-marco-TinyBERT-L-2-v2',
             #                                               output_hidden_states=True)
-            vocab_size = 1718
+            vocab_size = 30522
             self.embedding = nn.Embedding(vocab_size, hid_dim)
             # self.net = MultiHeadAttention(self.hid_dim, 1)
             # self.mlp = nn.Linear(self.hid_dim)
@@ -493,6 +497,11 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
 
+    def load_json(self, path):
+        with open(path) as f:
+            d = json.load(f)
+        # temp = torch.tensor(d['input_ids'],device=self.device)
+        return torch.tensor(d['input_ids'],device=self.device).transpose(1,0)
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_lstm_layer, batchsize, self.hid_dim)
@@ -507,16 +516,24 @@ class TextLSTMNet(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-        priv_s = torch.randint(low=0, high=1718, size=(128, hid["h0"].shape[1]), device=priv_s.device)
+        # priv_s = torch.randint(low=0, high=1718, size=(128, hid["h0"].shape[1]), device=priv_s.device)
+        priv_s = torch.transpose(priv_s, 0, 1)
+        # print(priv_s.shape)
         embed = self.embedding(priv_s)
         x = self.net(embed)
+        # print('X.shape', x.shape)
 
         # hid = self.get_h0(1)
         o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
         o = o[-1, :, :]
         if self.out_dim == 1:
-            act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
-            act_embed = self.embedding(act_tok)
+            # priv_s = torch.transpose(priv_s, 1, 0)
+            # with open('/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/pyhanabi/action_tokens/2p_action_ids.json') as f:
+            #     d = json.load(f)
+            # act_tok = torch.Tensor(d['input_ids'], device=priv_s.device)
+            # act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
+            # print('q_net forward 522', self.act_tok.shape)
+            act_embed = self.embedding(self.act_tok)
             x = self.net(act_embed)
             hid_action = self.get_h0(21)
             o_action, (h_act, c_act) = self.action_lstm(x, (hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
@@ -564,8 +581,11 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # print(o.shape)
         # print('***')
         if self.out_dim == 1:
-            act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
-            act_embed = self.embedding(act_tok)
+            # print('q_net forward 573',priv_s.shape)
+
+            # act_tok = torch.randint(low=0, high=1718, size=(16, 21), device=priv_s.device)
+            # print('act_tok shape in 589' ,self.act_tok.shape)
+            act_embed = self.embedding(self.act_tok)
             x = self.net(act_embed)
             hid_action = self.get_h0(21)
             o_action, (h_act, c_act) = self.action_lstm(x, (
