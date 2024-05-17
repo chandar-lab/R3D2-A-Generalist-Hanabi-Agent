@@ -433,9 +433,11 @@ std::string HanabiState::ToText() const {
       counter+= 1;
     }
   }
-  result +=result+'.';
+  result =result+'.';
   return result;
 }
+
+
 
 std::vector<int>  HanabiState::ToTokenize() const {
   std::string result;
@@ -443,6 +445,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
   std::string knowledge_info;
   std::string path;
   int counter;
+
   result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
 
   result += std::to_string(LifeTokens())  + " life tokens remaining. ";
@@ -501,7 +504,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
   auto tok = std::move(Tokenizer::FromBlobJSON(data));
 //
   std::vector<int> ids = tok->Encode(result);
-
+  ids.resize(128, 0);
   return ids;
 }
 

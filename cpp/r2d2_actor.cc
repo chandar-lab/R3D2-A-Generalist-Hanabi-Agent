@@ -1,6 +1,19 @@
 #include "cpp/r2d2_actor.h"
 #include "cpp/utils.h"
 #include <iomanip>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <tokenizers_cpp.h>
+using tokenizers::Tokenizer;
+
+
+std::string global_path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+std::string global_data;
+int flag = 0;
+std::unique_ptr<Tokenizer> global_tok;
+
 
 std::vector<hle::HanabiCardValue> sampleCards(
     const std::vector<float>& v0,
@@ -263,42 +276,33 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::next(const HanabiEnv& env) {
   assert(false);
   return nullptr;
 }
-
 void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   torch::NoGradGuard ng;
   prevHidden_ = hidden_;
   std::vector<int> token_ids;
+  std::string result;
   const auto& state = env.getHleState();
-//  std::cout << "Hanabi Text: " << state.ToText() << "\n";
+  result = state.ToText();
 
+  if (flag == 0) {
+    std::cout << "inside the tokenizer load function" << "\n";
+    std::ifstream fs(global_path, std::ios::in | std::ios::binary);
+    if (fs.fail()) {
+        std::cerr << "Cannot open " << global_path << std::endl;
+        exit(1);
+    }
+    fs.seekg(0, std::ios::end);
+    size_t size = static_cast<size_t>(fs.tellg());
+    fs.seekg(0, std::ios::beg);
+    global_data.resize(size);
+    fs.read(global_data.data(), size);
+    global_tok = std::move(Tokenizer::FromBlobJSON(global_data));
+    flag=1;
+    std::cout << "After initialization - called only once";
+    }
 
-  token_ids = state.ToTokenize();
-//  std::cout << "tokens=[";
-//  for (size_t i = 0; i < token_ids.size(); ++i) {
-//    if (i != 0) std::cout << ", ";
-//    std::cout << token_ids[i];
-//  }
-//  std::cout << "]" << std::endl;
-
-//  std::cout << "State String: " << state.ToString() << "\n";
-
-
-// Working state features
-//  std::cout << "Current player: " << state.CurPlayer() << "\n";
-//
-//  std::cout << "Life token: " << state.LifeTokens() << "\n";
-//  std::cout << "Information token: " << state.InformationTokens() << "\n";
-//  std::cout << "Hands token: " << state.Hands()[0].ToString() << "\n";
-//  std::cout << "Card Info: " << state.Hands()[0].Cards()[0].ToString()  << "\n"; // need a for loop and do a slicing
-//  std::cout << "Knowledge Info: " << state.Hands()[0].Knowledge()[0].ToString()  << "\n"; // need a for loop and do a slicing
-//
-//  std::cout << "Fireworks: " << state.Fireworks() << "\n";
-//  std::cout << "score = " << state.Score() << "\n\n";
-
-//
-//  std::cout << "Discard: " << state.DiscardPile() << "\n";
-//  std::cout << "Hands: " << state.Hands().at(0).Knowledge() << "\n";
-
+  token_ids = global_tok->Encode(result);
+  token_ids.resize(128, 0);
 
   auto input = observe(
       state,
@@ -309,17 +313,8 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
       hideAction_,
       aux_,
       sad_);
-//  std::cout << "The type of variable 'input priv_s' is: " << typeid(input["priv_s"]).name() << std::endl;
   input["priv_s"] = torch::tensor(token_ids);
 
-//  std::cout << "Vector state " << input["priv_s"] << "\n";
-//
-//  std::cout << "vector_state=[";
-//  for (size_t i = 0; i < input["priv_s"].size(); ++i) {
-//    if (i != 0) std::cout << ", ";
-//    std::cout << input["priv_s"][i];
-//  }
-//  std::cout << "]" << std::endl;
 
   // add features such as eps and temperature
   if (epsList_.size()) {

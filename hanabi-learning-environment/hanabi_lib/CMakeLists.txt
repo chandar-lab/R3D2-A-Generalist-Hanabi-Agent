@@ -20,6 +20,6 @@ add_subdirectory(${TOKENZIER_CPP_PATH} tokenizers EXCLUDE_FROM_ALL)
 
 add_library (hanabi hanabi_card.cc hanabi_game.cc hanabi_hand.cc hanabi_history_item.cc hanabi_move.cc hanabi_observation.cc hanabi_state.cc util.cc canonical_encoders.cc)
 target_include_directories(hanabi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(hanabi PRIVATE ${TOKENZIER_CPP_PATH}/include)
-target_link_libraries(hanabi PRIVATE tokenizers_cpp)
+target_include_directories(hanabi PUBLIC ${TOKENZIER_CPP_PATH}/include)
+target_link_libraries(hanabi PUBLIC tokenizers_cpp)
 
