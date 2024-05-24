@@ -56,6 +56,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.net = net
         self.num_lstm_layer = num_lstm_layer
         self.off_belief = off_belief
+        self.device = device
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -131,13 +132,13 @@ class R2D2Agent(torch.jit.ScriptModule):
         output: {'a' : actions}, a long Tensor of shape
             [batchsize] or [batchsize, num_player]
         """
-        priv_s = obs["priv_s"]
+        priv_s = obs["priv_s"].to(self.device)
         publ_s = priv_s[:, 125:] # obs["publ_s"]
-        legal_move = obs["legal_move"]
+        legal_move = obs["legal_move"].to(self.device)
         if "eps" in obs:
-            eps = obs["eps"].flatten(0, 1)
+            eps = obs["eps"].flatten(0, 1).to(self.device)
         else:
-            eps = torch.zeros((priv_s.size(0),), device=priv_s.device)
+            eps = torch.zeros((priv_s.size(0),), device=self.device)
 
         # converge it hid to from batch first to batch second
         # hid size: [batch, num_layer, num_player, dim] -> [num_layer, batch x num_player, dim]
@@ -155,7 +156,7 @@ class R2D2Agent(torch.jit.ScriptModule):
                 priv_s, publ_s, legal_move, hid, pikl_lambda, llm_prior
             )
         else:
-            greedy_action, new_hid, extra = self.greedy_act(priv_s, publ_s, legal_move, hid)
+            greedy_action, new_hid, extra = self.greedy_act(priv_s, publ_s, legal_move.to(self.device), hid)
 
         reply = {}
         random_action = legal_move.multinomial(1).squeeze(1)
@@ -188,14 +189,14 @@ class R2D2Agent(torch.jit.ScriptModule):
         seq_len: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         max_seq_len = obs["priv_s"].size(0)
-        priv_s = obs["priv_s"]
-        legal_move = obs["legal_move"]
+        priv_s = obs["priv_s"].to(self.device)
+        legal_move = obs["legal_move"].to(self.device)
         action = reply["a"]
         publ_s=priv_s
         if self.net=="text-lstm":
             priv_s = torch.transpose(priv_s, 1, 2)
 
-            priv_s = priv_s.reshape(-1, priv_s.shape[2])
+            # priv_s = priv_s.reshape(-1, priv_s.shape[2])
 
             publ_s = priv_s
 
