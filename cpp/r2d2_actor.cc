@@ -284,25 +284,7 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   const auto& state = env.getHleState();
   result = state.ToText();
 
-  if (flag == 0) {
-    std::cout << "inside the tokenizer load function" << "\n";
-    std::ifstream fs(global_path, std::ios::in | std::ios::binary);
-    if (fs.fail()) {
-        std::cerr << "Cannot open " << global_path << std::endl;
-        exit(1);
-    }
-    fs.seekg(0, std::ios::end);
-    size_t size = static_cast<size_t>(fs.tellg());
-    fs.seekg(0, std::ios::beg);
-    global_data.resize(size);
-    fs.read(global_data.data(), size);
-    global_tok = std::move(Tokenizer::FromBlobJSON(global_data));
-    flag=1;
-    std::cout << "After initialization - called only once";
-    }
-
-  token_ids = global_tok->Encode(result);
-  token_ids.resize(128, 0);
+  token_ids =  state.ToTokenize();
 
   auto input = observe(
       state,
