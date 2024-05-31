@@ -24,7 +24,10 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
+#include <memory>
+#include <vector>
+#include <thread>
+#include <mutex>
 #include "util.h"
 
 using tokenizers::Tokenizer;
@@ -438,7 +441,7 @@ std::string HanabiState::ToText() const {
 }
 
 
-static std::unique_ptr<Tokenizer> load_tokenizer() {
+std::unique_ptr<Tokenizer> load_tokenizer() {
   auto path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
   std::ifstream fs(path, std::ios::in | std::ios::binary);
   if (fs.fail()) {
@@ -454,14 +457,25 @@ static std::unique_ptr<Tokenizer> load_tokenizer() {
   std::cout << "Loaded Tokenizer - " << std::endl;
   return std::move(Tokenizer::FromBlobJSON(data));
 }
-static std::unique_ptr<Tokenizer> private_tok = load_tokenizer();
+thread_local std::unique_ptr<Tokenizer> private_tok = load_tokenizer();
+
+void initialize_tokenizer() {
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        private_tok = load_tokenizer();
+    });
+    if (!private_tok) {
+        private_tok = load_tokenizer();
+    }
+}
+
 std::vector<int>  HanabiState::ToTokenize() const {
   std::string result;
   std::string hand_info;
   std::string knowledge_info;
   std::string path;
   int counter;
-
+  initialize_tokenizer();
   result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
 
   result += std::to_string(LifeTokens())  + " life tokens remaining. ";
