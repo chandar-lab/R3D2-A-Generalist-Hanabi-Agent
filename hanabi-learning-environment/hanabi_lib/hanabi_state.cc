@@ -24,7 +24,10 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
+#include <memory>
+#include <vector>
+#include <thread>
+#include <mutex>
 #include "util.h"
 
 using tokenizers::Tokenizer;
@@ -438,6 +441,33 @@ std::string HanabiState::ToText() const {
 }
 
 
+std::unique_ptr<Tokenizer> load_tokenizer() {
+  auto path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+  std::ifstream fs(path, std::ios::in | std::ios::binary);
+  if (fs.fail()) {
+    std::cerr << "Cannot open " << path << std::endl;
+    exit(1);
+  }
+  std::string data;
+  fs.seekg(0, std::ios::end);
+  size_t size = static_cast<size_t>(fs.tellg());
+  fs.seekg(0, std::ios::beg);
+  data.resize(size);
+  fs.read(data.data(), size);
+  std::cout << "Loaded Tokenizer - " << std::endl;
+  return std::move(Tokenizer::FromBlobJSON(data));
+}
+thread_local std::unique_ptr<Tokenizer> private_tok = load_tokenizer();
+
+void initialize_tokenizer() {
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        private_tok = load_tokenizer();
+    });
+    if (!private_tok) {
+        private_tok = load_tokenizer();
+    }
+}
 
 std::vector<int>  HanabiState::ToTokenize() const {
   std::string result;
@@ -445,7 +475,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
   std::string knowledge_info;
   std::string path;
   int counter;
-
+  initialize_tokenizer();
   result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
 
   result += std::to_string(LifeTokens())  + " life tokens remaining. ";
@@ -488,22 +518,22 @@ std::vector<int>  HanabiState::ToTokenize() const {
   }
   result =result+'.';
   // Make the loading of tokenizer only once. Also make the path generic /home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib
-  path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
-  std::ifstream fs(path, std::ios::in | std::ios::binary);
-  if (fs.fail()) {
-    std::cerr << "Cannot open " << path << std::endl;
-    exit(1);
-  }
-  std::string data;
-  fs.seekg(0, std::ios::end);
-  size_t size = static_cast<size_t>(fs.tellg());
-  fs.seekg(0, std::ios::beg);
-  data.resize(size);
-  fs.read(data.data(), size);
+//  path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+//  std::ifstream fs(path, std::ios::in | std::ios::binary);
+//  if (fs.fail()) {
+//    std::cerr << "Cannot open " << path << std::endl;
+//    exit(1);
+//  }
+//  std::string data;
+//  fs.seekg(0, std::ios::end);
+//  size_t size = static_cast<size_t>(fs.tellg());
+//  fs.seekg(0, std::ios::beg);
+//  data.resize(size);
+//  fs.read(data.data(), size);
+////
+//  auto tok = std::move(Tokenizer::FromBlobJSON(data));
 //
-  auto tok = std::move(Tokenizer::FromBlobJSON(data));
-//
-  std::vector<int> ids = tok->Encode(result);
+  std::vector<int> ids = private_tok->Encode(result);
   ids.resize(128, 0);
   return ids;
 }

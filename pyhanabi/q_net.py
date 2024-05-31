@@ -457,7 +457,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.out_dim = out_dim
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
-        self.path = '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/pyhanabi/action_tokens/2p_action_ids.json'
+        self.path = '/home/mila/n/nekoeiha/scratch/llm_hanabi_hive/2p_action_ids.json'
         self.act_tok = self.load_json(self.path)
         # self.act_tok = torch.tensor(self.act_tokens['input_ids'], device=device)
 
@@ -517,7 +517,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
         # priv_s = torch.randint(low=0, high=1718, size=(128, hid["h0"].shape[1]), device=priv_s.device)
-        priv_s = torch.transpose(priv_s, 0, 1)
+        priv_s = torch.transpose(priv_s, 0, 1).to(self.device)
         # print(priv_s.shape)
         embed = self.embedding(priv_s)
         x = self.net(embed)
@@ -566,9 +566,12 @@ class TextLSTMNet(torch.jit.ScriptModule):
         #     legal_move = legal_move.unsqueeze(0)
         #     action = action.unsqueeze(0)
         #     one_step = True
-        # print(priv_s.shape)
-        embed = self.embedding(priv_s)
-        # print(embed.shape)
+        # print("priv s shape before embed", priv_s.shape)
+        priv_s = priv_s.to(self.device)
+        embed = self.embedding(priv_s.to(self.device))
+        embed = embed.reshape(-1, embed.shape[-2], embed.shape[-1])
+        # print("priv s shape after embed", embed.shape)
+
         x = self.net(embed)
         # print(x.shape)
         if len(hid) == 0:
