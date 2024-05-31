@@ -2,7 +2,7 @@ import torch
 import json
 import torch.nn as nn
 from typing import Tuple, Dict
-from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet
+from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet, TextLSTMNet2
 
 
 class R2D2Agent(torch.jit.ScriptModule):
@@ -40,6 +40,20 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
             self.target_net = TextLSTMNet(
                 device, in_dim, hid_dim, 1, num_lstm_layer
+            ).to(device)
+        elif net == "text-input-lstm2":
+            self.online_net = TextLSTMNet2(
+                device, in_dim, hid_dim, out_dim, num_lstm_layer
+            ).to(device)
+            self.target_net = TextLSTMNet2(
+                device, in_dim, hid_dim, out_dim, num_lstm_layer
+            ).to(device)
+        elif net == "text-input-lstm":
+            self.online_net = TextLSTMNet(
+                device, in_dim, hid_dim, out_dim, num_lstm_layer
+            ).to(device)
+            self.target_net = TextLSTMNet(
+                device, in_dim, hid_dim, out_dim, num_lstm_layer
             ).to(device)
         # elif net == "mha":
         #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
@@ -148,7 +162,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             "h0": obs["h0"].transpose(0, 1).flatten(1, 2).contiguous(),
             "c0": obs["c0"].transpose(0, 1).flatten(1, 2).contiguous(),
         }
-
+        # print("hid shape in act 158", hid['h0'].shape)
         if "llm_prior" in obs:
             pikl_lambda = obs["pikl_lambda"]
             llm_prior = obs["llm_prior"]
@@ -193,21 +207,20 @@ class R2D2Agent(torch.jit.ScriptModule):
         legal_move = obs["legal_move"].to(self.device)
         action = reply["a"]
         publ_s=priv_s
-        if self.net=="text-lstm":
-            priv_s = torch.transpose(priv_s, 1, 2)
 
-            # priv_s = priv_s.reshape(-1, priv_s.shape[2])
-
-            publ_s = priv_s
-
-
-        elif self.net=="lstm":
+        if self.net=="lstm":
             if self.vdn:
                 num_player = priv_s.size(2)
                 priv_s = priv_s.flatten(1, 2)
                 legal_move = legal_move.flatten(1, 2)
                 action = action.flatten(1, 2)
             publ_s = priv_s[:, :, 125:]
+        else:
+            priv_s = torch.transpose(priv_s, 1, 2)
+
+        # priv_s = priv_s.reshape(-1, priv_s.shape[2])
+
+        publ_s = priv_s
 
 
         bsize, num_player = priv_s.size(1), 1
@@ -215,6 +228,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             hid[k] = v.flatten(1, 2).contiguous()
         # this only works because the trajectories are padded,
         # i.e. no terminal in the middle
+        # print("hid shape in line 225", hid['h0'].shape)
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
             priv_s, publ_s, legal_move, action, hid
         )

@@ -1,15 +1,15 @@
-num_thread: 8 #16
-num_game_per_thread: 120 #40
+num_thread: 40
+num_game_per_thread: 120
 replay_buffer_size: 50000
 burn_in_frames: 10000
-train_device: cuda:1
-act_device: cuda:0
+train_device: cuda:0
+act_device: cuda:1
 vdn: 0
 num_epoch: 500
 epoch_len: 500
 act_base_eps: 0.1
 gamma: 0.999
-net: text-lstm
+net: text-input-lstm2
 aux_weight: 0
 llm_prior:
 pikl_beta: 1
@@ -22,4 +22,4 @@ batchsize: 32
 max_len: 80
 num_player: 2
 do_eval: 1
-save_dir: exps/test_len80_b32_2
+save_dir: exps/test_len80_b32_500epochs
