@@ -6,10 +6,10 @@ from typing import Tuple, Dict
 import numpy as np
 from transformers import BertConfig, BertLMHeadModel, BertForPreTraining
 from transformers import BertTokenizer, DistilBertModel, BertModel
+from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
 
-# text_encoder = BertForPreTraining.from_pretrained('cross-encoder/ms-marco-TinyBERT-L-2-v2',
-#                                                                output_hidden_states=True)
-# text_encoder = BertModel.from_pretrained('bert-base-uncased')
+
 
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
@@ -496,6 +496,26 @@ class TextLSTMNet(torch.jit.ScriptModule):
 
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
+        self.call_transformer = self.load_transformers()
+        # self.compiled_transformers = torch.jit.load('/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may24/Zeroshot_hanabi_instructrl/pyhanabi/bert_traced.pt')
+        # self.compiled_transformers_device = self.compiled_transformers.to_device('cuda:1')
+        self.example = torch.tensor([[ 101, 7592, 1010, 2129, 2024, 2017, 1029,  102]])
+
+    def load_transformers(self):
+
+        model = BertModel.from_pretrained('bert-base-uncased')
+        model.to('cuda:1')
+        model.eval()
+
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        dummy_input = tokenizer("Hello, this is a TorchScript test", return_tensors='pt')
+        input_ids = dummy_input['input_ids'].to('cuda:1')
+
+        # Trace the model with strict=False
+        traced_model = torch.jit.trace(model, input_ids, strict=False)
+        return traced_model
+        # Save the traced model
+        # traced_model.save("bert_traced.pt")
 
     def load_json(self, path):
         with open(path) as f:
@@ -517,10 +537,17 @@ class TextLSTMNet(torch.jit.ScriptModule):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
         # priv_s = torch.randint(low=0, high=1718, size=(128, hid["h0"].shape[1]), device=priv_s.device)
+        print('priv_s q_net',priv_s.shape)
+        with torch.no_grad():
+            outputs = self.call_transformer(priv_s)
+
+        print(outputs['last_hidden_state'].shape)
         priv_s = torch.transpose(priv_s, 0, 1).to(self.device)
-        # print(priv_s.shape)
+
+
         embed = self.embedding(priv_s)
         x = self.net(embed)
+        # print('priv - x', x.shape)
         # print('X.shape', x.shape)
 
         # hid = self.get_h0(1)
