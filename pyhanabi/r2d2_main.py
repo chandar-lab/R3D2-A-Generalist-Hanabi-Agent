@@ -20,6 +20,8 @@ import hanalearn  # type: ignore
 import r2d2
 import utils
 
+import wandb
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
@@ -98,6 +100,8 @@ def parse_args():
 
 def train(args):
     common_utils.set_all_seeds(args.seed)
+
+    wandb.init(project='r2d2_drrn', entity='nekoeihe', config=args)
 
     logger_path = os.path.join(args.save_dir, f"train.log")
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
@@ -317,9 +321,12 @@ def train(args):
                 score, perfect = None, None
 
             force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
-            model_saved = saver.save(
-                online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
-            )
+            # model_saved = saver.save(
+            #     online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
+            # )
+            model_saved = None
+            wandb.log({"epoch": epoch, "score": score, "perfect": perfect})
+
             print(
                 "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"
                 % (epoch, score, perfect, model_saved)

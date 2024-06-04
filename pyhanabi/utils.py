@@ -10,6 +10,7 @@ import r2d2
 import ppo
 from create import create_envs
 import common_utils
+import wandb
 
 
 def process_compiled_state_dict(state_dict):
@@ -293,6 +294,7 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
+        wandb.log({"train_steps": self.num_train, "act_steps": self.num_buffer})
         return sleep_time
 
 

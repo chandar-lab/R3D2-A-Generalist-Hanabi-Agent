@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Dict
 import numpy as np
-from transformers import AutoTokenizer, AutoModel, BertModel, BertTokenizer, BertForPreTraining
+from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
 from sentence_transformers import SentenceTransformer
 import copy
 
@@ -470,23 +470,33 @@ class TextLSTMNet(torch.jit.ScriptModule):
             num_layers=self.num_lstm_layer,
         ).to(device)
         self.state_lstm.flatten_parameters()
+        total_params = sum(p.numel() for p in self.state_lstm.parameters())
+        print(f"self.state_lstm Number of parameters: {total_params}")
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
-
+        total_params = sum(p.numel() for p in self.fc_a.parameters())
+        print(f"self.fc_a Number of parameters: {total_params}")
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
         self.call_transformer = self.load_transformers()
+        total_params = sum(p.numel() for p in self.call_transformer.parameters())
+        print(f"self.call_transformer Number of parameters: {total_params}")
 
     def load_transformers(self):
 
-        model = BertModel.from_pretrained('bert-base-uncased')
+        # model = BertModel.from_pretrained('bert-base-uncased')
         # model = BertForPreTraining.from_pretrained("google-bert/bert-base-uncased")
-        model = self.deleteEncodingLayers(model, 2)
+
+        pretrained_model_name = "cross-encoder/ms-marco-TinyBERT-L-2-v2"
+        pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
+        model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
+
+        # model = self.deleteEncodingLayers(model, 1)
         model.to(self.device)
         model.eval()
 
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        tokenizer = BertTokenizer.from_pretrained('cross-encoder/ms-marco-TinyBERT-L-2-v2')
         dummy_input = tokenizer("Hello, this is a TorchScript test", return_tensors='pt')
         input_ids = dummy_input['input_ids'].to(self.device)
 
@@ -565,8 +575,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         seq_len, num_words, batch = priv_s.size()
         priv_s = priv_s.transpose(1, 2)
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
-        with torch.no_grad():
-            out = self.call_transformer(priv_s)
+        # with torch.no_grad():
+        out = self.call_transformer(priv_s)
         x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
 
         hid = self.get_h0(x.shape[-2])
