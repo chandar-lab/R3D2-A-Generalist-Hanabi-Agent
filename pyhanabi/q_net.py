@@ -443,7 +443,6 @@ class PublicLSTMNet(torch.jit.ScriptModule):
         return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
 
 
-
 class TextLSTMNet(torch.jit.ScriptModule):
     def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
         super().__init__()
@@ -622,6 +621,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
 
 
+
 class TextLSTMNet2(torch.jit.ScriptModule):
     def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
         super().__init__()
@@ -635,15 +635,6 @@ class TextLSTMNet2(torch.jit.ScriptModule):
         self.num_lstm_layer = num_lstm_layer
         self.path = '/home/mila/n/nekoeiha/scratch/llm_hanabi_hive/2p_action_ids.json'
         self.act_tok = self.load_json(self.path)
-        vocab_size = 30522
-
-        self.embedding = nn.Embedding(vocab_size, hid_dim)
-        # for param in self.embedding.parameters():
-        #     param.requires_grad = False
-        # self.net = MultiHeadAttention(self.hid_dim, 1)
-        # self.mlp = nn.Linear(self.hid_dim)
-        self.net = SelfAttentionEmbedding(hid_dim, 1)
-        self.act_net = SelfAttentionEmbedding(hid_dim, 1)
         self.action_lstm = nn.LSTM(
             self.hid_dim,
             self.hid_dim,
@@ -660,15 +651,46 @@ class TextLSTMNet2(torch.jit.ScriptModule):
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
-
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
+        self.call_transformer = self.load_transformers(pretrained_model_name="cross-encoder/ms-marco-TinyBERT-L-2-v2")
+
+    def load_transformers(self, pretrained_model_name):
+
+        pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
+        model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
+
+        # model = self.deleteEncodingLayers(model, 1)
+        model.to(self.device)
+        model.eval()
+
+        tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
+        dummy_input = tokenizer("Hello, this is a TorchScript test", return_tensors='pt')
+        input_ids = dummy_input['input_ids'].to(self.device)
+
+        # Trace the model with strict=False
+        traced_model = torch.jit.trace(model, input_ids, strict=False)
+        return traced_model
+
+    def deleteEncodingLayers(self, model, num_layers_to_keep):
+        oldModuleList = model.encoder.layer
+        newModuleList = nn.ModuleList()
+
+        # Now iterate over all layers, only keepign only the relevant layers.
+        for i in range(0, num_layers_to_keep):
+            newModuleList.append(oldModuleList[i])
+
+        # create a copy of the model, modify it with the new list, and return
+        copyOfModel = copy.deepcopy(model)
+        copyOfModel.encoder.layer = newModuleList
+
+        return copyOfModel
 
     def load_json(self, path):
         with open(path) as f:
             d = json.load(f)
-        # temp = torch.tensor(d['input_ids'],device=self.device)
-        return torch.tensor(d['input_ids'],device=self.device).transpose(1,0)
+        return torch.tensor(d['input_ids'],device=self.device)
+
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_lstm_layer, batchsize, self.hid_dim)
@@ -683,29 +705,22 @@ class TextLSTMNet2(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-        priv_s = torch.transpose(priv_s, 0, 1).to(self.device)
-        # print(priv_s.shape)
-        embed = self.embedding(priv_s)
-        # print("priv s shape after embed act", embed.shape)
+        with torch.no_grad():
+            x = self.call_transformer(priv_s)
+            x = x['last_hidden_state'].mean(dim=1).unsqueeze(0)
+            o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
+            o = o[-1, :, :]
+            if self.out_dim == 1:
+                a = self.call_transformer(self.act_tok)
+                a = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
+                hid_action = self.get_h0(21)
+                o_action, (h_act, c_act) = self.action_lstm(a, (hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
+                o_action = o_action[-1, :, :]
+                o_action = o_action.repeat(o.shape[0], 1) * o.repeat(o_action.shape[0], 1)
+                o = o_action.view(-1, self.hid_dim)
 
-        x = self.net(embed)
-
-        # x = x.mean(dim=0).unsqueeze(0)
-        # print('X.shape in act', x.shape)
-        # hid = self.get_h0(1)
-        o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
-        o = o[-1, :, :]
-        if self.out_dim == 1:
-            act_embed = self.embedding(self.act_tok)
-            x = self.net(act_embed)
-            hid_action = self.get_h0(21)
-            o_action, (h_act, c_act) = self.action_lstm(x, (hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
-            o_action = o_action[-1, :, :]
-            o = o_action.repeat(hid["h0"].shape[1], 1) * o.repeat(21, 1)
-            o = o.view(hid["h0"].shape[1]*21, -1)
-
-        a = self.fc_a(o)
-        a = a.view(hid["h0"].shape[1], -1)
+            a = self.fc_a(o)
+            a = a.view(hid["h0"].shape[1], -1)
 
         return a, {"h0": h, "c0": c}
 
@@ -725,41 +740,35 @@ class TextLSTMNet2(torch.jit.ScriptModule):
         one_step = False
         priv_s = priv_s.to(self.device)
         seq_len, num_words, batch = priv_s.size()
-        embed = self.embedding(priv_s.to(self.device))
-        # embed = embed.reshape(-1, embed.shape[-2], embed.shape[-1])
-        embed = embed.transpose(0, 1)
-        embed = embed.reshape(embed.shape[0], -1, embed.shape[-1])
-        # print("priv s shape after embed forawrd", embed.shape)
-
-        x = self.net(embed)
-        # print("X.shape in forward", x.shape)
-        x = x.view(seq_len, batch, embed.shape[-1])
+        priv_s = priv_s.transpose(1, 2)
+        priv_s = priv_s.reshape(-1, priv_s.shape[-1])
+        # with torch.no_grad():
+        out = self.call_transformer(priv_s)
+        x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
 
         hid = self.get_h0(x.shape[-2])
-        # print("x shape in forward", x.shape)
         if len(hid) == 0:
             o, _ = self.state_lstm(x)
         else:
             o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
-
         if self.out_dim == 1:
-            act_embed = self.embedding(self.act_tok)
-            x = self.net(act_embed)
+            # act_embed = self.embedding(self.act_tok)
+            # x = self.act_net(act_embed)
+            a = self.call_transformer(self.act_tok)
+            a = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
             hid_action = self.get_h0(21)
-            o_action, (h_act, c_act) = self.action_lstm(x, (
+            o_action, (h_act, c_act) = self.action_lstm(a, (
             hid_action["h0"].to(priv_s.device), hid_action["c0"].to(priv_s.device)))
             o_action = o_action[-1, :, :].unsqueeze(1)
-            # print(o_action.shape)
-            o_repeated = o_action.repeat(o.shape[0], o.shape[1], 1) * o.repeat(21, 1, 1)
-            o_repeated = o_repeated.view(-1, o.shape[-1])
+            o_action = o_action.repeat(o.shape[0], o.shape[1], 1) * o.repeat(o_action.shape[0], 1, 1)
+            o_action = o_action.view(-1, self.hid_dim)
         else:
-            o_repeated = o
+            o_action = o
 
-        a = self.fc_a(o_repeated).view(legal_move.size())
+        a = self.fc_a(o_action).view(legal_move.size())
         v = self.fc_v(o).view(legal_move.shape[0], legal_move.shape[1], 1)
         q = duel(v, a, legal_move)
 
-        # print(q.shape)
         # q: [seq_len, batch, num_action]
         # action: [seq_len, batch]
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
@@ -778,36 +787,3 @@ class TextLSTMNet2(torch.jit.ScriptModule):
 
     def pred_loss_1st(self, lstm_o, target, hand_slot_mask, seq_len):
         return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
-
-class SelfAttentionEmbedding(torch.jit.ScriptModule):
-    def __init__(self, input_dim, num_head, word_count=128):
-        super().__init__()
-
-        self.input_dim = input_dim
-        self.num_head = num_head
-
-        self.k_proj = nn.Linear(self.input_dim, self.input_dim)
-        self.multi_proj = nn.Linear(self.input_dim, self.num_head * self.input_dim)
-        self.mha = MultiHeadAttention(self.input_dim, 1)  # use 1 head for MHA for now
-        self.scale = np.sqrt(input_dim)
-        self.last_proj = nn.Linear(word_count, 1)
-
-    @torch.jit.script_method
-    def forward(self, x: torch.Tensor):
-        # x: [seq, batch, input_dim]
-        seq, batch, input_dim = x.size()
-        multi_proj = self.multi_proj(x).view(seq * batch, self.num_head, input_dim)
-        # multi_proj: [seq * batch, num_head, input_dim] -> [num_head, seq * batch, input_dim]
-        multi_proj = multi_proj.permute((1, 0, 2))
-        attn_v = self.mha(multi_proj)  # attn_v: [num_head, seq * batch, input_dim]
-        attn_v = attn_v.permute((1, 0, 2)).view(seq, batch, self.num_head, input_dim)
-
-        # compute q_weights
-        k_proj = self.k_proj(x).unsqueeze(2)
-        prod = (k_proj * attn_v).sum(3) / self.scale
-        q_weight = nn.functional.softmax(prod, 2) # q_weight: [seq, batch, num_head]
-
-        # compute weighted sum of attention values across all heads
-        attn_v_weighted = (q_weight.unsqueeze(3) * attn_v).sum(2)  # [seq, batch, input_dim]
-        attn_v_weighted = self.last_proj(attn_v_weighted.transpose(0, -1)).transpose(0, -1)
-        return attn_v_weighted

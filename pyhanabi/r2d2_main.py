@@ -90,6 +90,7 @@ def parse_args():
 
     # debug
     parser.add_argument("--do_eval", type=int, default=1)
+    parser.add_argument("--wandb", type=int, default=1)
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
@@ -100,8 +101,8 @@ def parse_args():
 
 def train(args):
     common_utils.set_all_seeds(args.seed)
-
-    wandb.init(project='r2d2_drrn', entity='nekoeihe', config=args)
+    if args.wandb:
+        wandb.init(project='r2d2_drrn', entity='nekoeihe', config=args)
 
     logger_path = os.path.join(args.save_dir, f"train.log")
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
@@ -289,6 +290,7 @@ def train(args):
                 num_batch=args.epoch_len,
                 target_ratio=args.target_data_ratio,
                 current_sleep_time=sleep_time,
+                wandb=args.wandb
             )
             sleep_time = 0.6 * sleep_time + 0.4 * new_sleep_time
             print(
@@ -325,7 +327,8 @@ def train(args):
             #     online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
             # )
             model_saved = None
-            wandb.log({"epoch": epoch, "score": score, "perfect": perfect})
+            if args.wandb:
+                wandb.log({"epoch": epoch, "score": score, "perfect": perfect})
 
             print(
                 "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"
