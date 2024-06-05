@@ -290,7 +290,7 @@ def train(args):
                 num_batch=args.epoch_len,
                 target_ratio=args.target_data_ratio,
                 current_sleep_time=sleep_time,
-                wandb=args.wandb
+                use_wandb=args.wandb
             )
             sleep_time = 0.6 * sleep_time + 0.4 * new_sleep_time
             print(

@@ -261,7 +261,7 @@ class Tachometer:
 
     def lap(
         self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time,
-    wandb=False) -> float:
+    use_wandb=False) -> float:
         assert self.t is not None
         t = time.time() - self.t
         self.total_time += t
@@ -294,7 +294,7 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
-        if wandb:
+        if use_wandb:
             wandb.log({"train_steps": self.num_train, "act_steps": self.num_buffer})
         return sleep_time
 
