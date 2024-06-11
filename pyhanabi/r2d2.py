@@ -35,7 +35,7 @@ class R2D2Agent(torch.jit.ScriptModule):
                 device, in_dim, hid_dim, out_dim, num_lstm_layer
             ).to(device)
         elif net == "drrn-lstm":
-            self.online_net = TextLSTMNet2(
+            self.online_net = TextLSTMNet(
                 device, in_dim, hid_dim, 1, num_lstm_layer
             ).to(device)
             self.target_net = TextLSTMNet2(
