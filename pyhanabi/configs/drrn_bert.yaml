@@ -25,4 +25,5 @@ rnn_hid_dim: 128
 num_player: 2
 do_eval: 1
 save_dir: exps/test_drrn_b64_update
-wandb: 0
+wandb: 1
+update_freq_text_enc: 1

@@ -444,7 +444,7 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
 
 class TextLSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer,update_text_encoder):
         super().__init__()
         # for backward compatibility
 
@@ -469,6 +469,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
             num_layers=self.num_lstm_layer,
         ).to(device)
         self.state_lstm.flatten_parameters()
+        self.update_text_encoder = update_text_encoder
         total_params = sum(p.numel() for p in self.state_lstm.parameters())
         print(f"self.state_lstm Number of parameters: {total_params}")
 
@@ -574,8 +575,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
         seq_len, num_words, batch = priv_s.size()
         priv_s = priv_s.transpose(1, 2)
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
-        # with torch.no_grad():
-        out = self.call_transformer(priv_s)
+        print('update_text_encoder', update_text_encoder)
+
+        if update_text_encoder:
+            print('inside the gradient update_text_encoder')
+            out = self.call_transformer(priv_s)
+        else:
+            with torch.no_grad():
+                out = self.call_transformer(priv_s)
         x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
 
         hid = self.get_h0(x.shape[-2])
@@ -732,6 +739,7 @@ class TextLSTMNet2(torch.jit.ScriptModule):
         legal_move: torch.Tensor,
         action: torch.Tensor,
         hid: Dict[str, torch.Tensor],
+        update_text_encoder: bool
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert (
             priv_s.dim() == 3 or priv_s.dim() == 2
@@ -743,7 +751,33 @@ class TextLSTMNet2(torch.jit.ScriptModule):
         priv_s = priv_s.transpose(1, 2)
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
         # with torch.no_grad():
-        out = self.call_transformer(priv_s)
+
+
+        # batch_size = 2048
+        # outputs = []
+        # # print('priv_s', priv_s.shape)
+        # priv_s_split = priv_s.split(batch_size, dim=0)
+        # # print(priv_s_split[0].shape)
+
+        # for i in range(0,len(priv_s_split)):
+        #     # print(priv_s_split[i].shape)
+      
+        #     out = self.call_transformer(priv_s_split[i])
+        #     x = out['last_hidden_state'].mean(dim=1)
+        #     outputs.append(x)
+        
+        # # # Concatenate all outputs
+        # combined_output = torch.cat(outputs, dim=0)
+        
+        # # # Reshape combined output to (seq_len, batch, hidden_dim)
+        # seq_len, hidden_dim = combined_output.shape
+        # x = combined_output.reshape(seq_len, -1, hidden_dim)
+        # print('update_textencoder', update_text_encoder)
+        if update_text_encoder:
+            out = self.call_transformer(priv_s)
+        else:
+            with torch.no_grad():
+                out = self.call_transformer(priv_s)
         x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
 
         hid = self.get_h0(x.shape[-2])

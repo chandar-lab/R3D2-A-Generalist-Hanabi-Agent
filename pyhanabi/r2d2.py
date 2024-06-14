@@ -194,6 +194,8 @@ class R2D2Agent(torch.jit.ScriptModule):
         reward: torch.Tensor,
         bootstrap: torch.Tensor,
         seq_len: torch.Tensor,
+        update_text_encoder: bool
+
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         max_seq_len = obs["priv_s"].size(0)
         priv_s = obs["priv_s"].to(self.device)
@@ -222,9 +224,12 @@ class R2D2Agent(torch.jit.ScriptModule):
         # this only works because the trajectories are padded,
         # i.e. no terminal in the middle
         # print("hid shape in line 225", hid['h0'].shape)
+
+
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
-            priv_s, publ_s, legal_move, action, hid
+            priv_s, publ_s, legal_move, action, hid,update_text_encoder
         )
+
         # if "llm_prior" in obs:
         #     llm_prior = obs["llm_prior"]
         #     pikl_lambda = obs["pikl_lambda"]
@@ -243,7 +248,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             target = obs["target"]
         else:
             target_qa, _, _, _ = self.target_net(
-                priv_s, publ_s, legal_move, greedy_a, hid
+                priv_s, publ_s, legal_move, greedy_a, hid,update_text_encoder
             )
             if self.vdn:
                 target_qa = target_qa.view(max_seq_len, bsize, num_player).sum(-1)
@@ -282,7 +287,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             stat["aux"].feed(avg_xent1)
         return pred_loss1
 
-    def loss(self, batch, aux_weight, stat):
+    def loss(self, batch, aux_weight, stat,update_text_encoder):
         err, lstm_o, _ = self.td_error(
             batch.obs,
             batch.h0,
@@ -290,6 +295,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.reward,
             batch.bootstrap,
             batch.seq_len,
+            update_text_encoder
         )
         rl_loss = nn.functional.smooth_l1_loss(
             err, torch.zeros_like(err), reduction="none"

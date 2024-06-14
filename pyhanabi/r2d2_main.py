@@ -91,6 +91,8 @@ def parse_args():
     # debug
     parser.add_argument("--do_eval", type=int, default=1)
     parser.add_argument("--wandb", type=int, default=1)
+    parser.add_argument("--update_freq_text_enc", type=int, default=1)
+
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
@@ -263,7 +265,10 @@ def train(args):
                 batch = replay_buffer.sample(args.batchsize, train_device)
 
             with stopwatch.time("forward & backward"):
-                loss = agent.loss(batch, args.aux_weight, stat)
+                update_text_encoder=False
+                if num_update % args.update_freq_text_enc == 0:
+                    update_text_encoder=True
+                loss = agent.loss(batch, args.aux_weight, stat, update_text_encoder)
                 loss = loss.mean()
                 loss.backward()
                 torch.cuda.synchronize()
