@@ -2,7 +2,7 @@ import torch
 import json
 import torch.nn as nn
 from typing import Tuple, Dict
-from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet, TextLSTMNet2
+from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet
 
 
 class R2D2Agent(torch.jit.ScriptModule):
@@ -38,7 +38,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net = TextLSTMNet(
                 device, in_dim, hid_dim, 1, num_lstm_layer
             ).to(device)
-            self.target_net = TextLSTMNet2(
+            self.target_net = TextLSTMNet(
                 device, in_dim, hid_dim, 1, num_lstm_layer
             ).to(device)
         elif net == "text-input-lstm":
