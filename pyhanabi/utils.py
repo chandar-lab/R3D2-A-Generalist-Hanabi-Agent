@@ -10,6 +10,7 @@ import r2d2
 import ppo
 from create import create_envs
 import common_utils
+import wandb
 
 
 def process_compiled_state_dict(state_dict):
@@ -259,8 +260,8 @@ class Tachometer:
         self.t = time.time()
 
     def lap(
-        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time
-    ) -> float:
+        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time,
+    use_wandb=False) -> float:
         assert self.t is not None
         t = time.time() - self.t
         self.total_time += t
@@ -293,6 +294,8 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
+        if use_wandb:
+            wandb.log({"train_steps": self.num_train, "act_steps": self.num_buffer})
         return sleep_time
 
 
@@ -375,3 +378,7 @@ def ddp_setup(rank, world_size):
 
 def ddp_cleanup():
     dist.destroy_process_group()
+
+def get_num_params(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"self.state_lstm Number of parameters: {total_params}")

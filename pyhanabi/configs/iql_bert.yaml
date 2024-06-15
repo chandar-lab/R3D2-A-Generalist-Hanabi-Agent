@@ -9,17 +9,20 @@ num_epoch: 500
 epoch_len: 500
 act_base_eps: 0.1
 gamma: 0.999
-net: text-input-lstm2
+multi_step: 1
+net: text-input-lstm
 aux_weight: 0
 llm_prior:
 pikl_beta: 1
 pikl_lambda: 0.15
 shuffle_color: 0
 target_data_ratio: 2
-load_model:
+load_model: # exps/test_len80_b32_500epochs/model0.pthw
 save_per: 10
-batchsize: 32
+batchsize: 64
 max_len: 80
+rnn_hid_dim: 128
 num_player: 2
 do_eval: 1
-save_dir: exps/test_len80_b32_500epochs
+save_dir: exps/test_tinybert_b64_update
+wandb: 0
