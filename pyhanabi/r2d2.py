@@ -17,7 +17,10 @@ class R2D2Agent(torch.jit.ScriptModule):
         out_dim,
         net,
         num_lstm_layer,
-        off_belief,
+        lm_weights,
+        num_of_player,
+        off_belief
+
     ):
         super().__init__()
         if net == "publ-lstm":
@@ -36,17 +39,17 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
         elif net == "drrn-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player
             ).to(device)
         elif net == "text-input-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player
             ).to(device)
         # elif net == "mha":
         #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
@@ -64,6 +67,8 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.num_lstm_layer = num_lstm_layer
         self.off_belief = off_belief
         self.device = device
+        self.lm_weights = lm_weights
+        self.num_of_player = num_of_player
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -83,6 +88,8 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.out_dim,
             self.net,
             self.num_lstm_layer,
+            self.lm_weights,
+            self.num_of_player,
             self.off_belief,
         )
         cloned.load_state_dict(self.state_dict())
@@ -194,6 +201,8 @@ class R2D2Agent(torch.jit.ScriptModule):
         reward: torch.Tensor,
         bootstrap: torch.Tensor,
         seq_len: torch.Tensor,
+        update_text_encoder: bool
+
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         max_seq_len = obs["priv_s"].size(0)
         priv_s = obs["priv_s"].to(self.device)
@@ -222,8 +231,9 @@ class R2D2Agent(torch.jit.ScriptModule):
         # this only works because the trajectories are padded,
         # i.e. no terminal in the middle
         # print("hid shape in line 225", hid['h0'].shape)
+        # print('update_text_encoder',update_text_encoder)
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
-            priv_s, publ_s, legal_move, action, hid
+            priv_s, publ_s, legal_move, action, hid, update_text_encoder
         )
         # if "llm_prior" in obs:
         #     llm_prior = obs["llm_prior"]
@@ -243,7 +253,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             target = obs["target"]
         else:
             target_qa, _, _, _ = self.target_net(
-                priv_s, publ_s, legal_move, greedy_a, hid
+                priv_s, publ_s, legal_move, greedy_a, hid, update_text_encoder
             )
             if self.vdn:
                 target_qa = target_qa.view(max_seq_len, bsize, num_player).sum(-1)
@@ -282,7 +292,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             stat["aux"].feed(avg_xent1)
         return pred_loss1
 
-    def loss(self, batch, aux_weight, stat):
+    def loss(self, batch, aux_weight, stat, update_text_encoder):
         err, lstm_o, _ = self.td_error(
             batch.obs,
             batch.h0,
@@ -290,6 +300,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.reward,
             batch.bootstrap,
             batch.seq_len,
+            update_text_encoder
         )
         rl_loss = nn.functional.smooth_l1_loss(
             err, torch.zeros_like(err), reduction="none"

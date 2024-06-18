@@ -90,11 +90,16 @@ def parse_args():
 
     # debug
     parser.add_argument("--do_eval", type=int, default=1)
-    parser.add_argument("--wandb", type=int, default=1)
+    parser.add_argument("--wandb", type=str, default=1)
+
+    parser.add_argument("--update_freq_text_enc", type=str, default=1)
+    parser.add_argument("--lm_weights", type=str, default=1)
+
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
-
+    args.update_freq_text_enc = int(args.update_freq_text_enc)
+    args.wandb = int(args.wandb)
     args.seed = utils.get_seed(args.seed)
     return args
 
@@ -134,7 +139,10 @@ def train(args):
         games[0].num_action(),
         args.net,
         args.num_lstm_layer,
+        args.lm_weights,
+        args.num_player,
         off_belief=False,
+
     )
     print(agent)
 
@@ -263,7 +271,10 @@ def train(args):
                 batch = replay_buffer.sample(args.batchsize, train_device)
 
             with stopwatch.time("forward & backward"):
-                loss = agent.loss(batch, args.aux_weight, stat)
+                update_text_encoder = False
+                if num_update % args.update_freq_text_enc == 0:
+                    update_text_encoder = True
+                loss = agent.loss(batch, args.aux_weight, stat, update_text_encoder)
                 loss = loss.mean()
                 loss.backward()
                 torch.cuda.synchronize()
