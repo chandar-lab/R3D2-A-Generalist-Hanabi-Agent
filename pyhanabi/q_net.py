@@ -482,24 +482,18 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
         self.lm_weights = lm_weights
         self.call_transformer = self.load_transformers(pretrained_model_name="cross-encoder/ms-marco-TinyBERT-L-2-v2")
+        
     def load_transformers(self, pretrained_model_name):
+        pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
+        model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
+
         if self.lm_weights=="random":
             def reset_parameters(module):
                 if hasattr(module, 'weight') and module.weight is not None:
                     torch.nn.init.normal_(module.weight)
                 if hasattr(module, 'bias') and module.bias is not None:
                     torch.nn.init.constant_(module.bias, 0)
-
-            # Load the pretrained BERT model
-            pretrained_model_name = "cross-encoder/ms-marco-TinyBERT-L-2-v2"
-            pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
-
-            model = BertModel(config=pretrained_config)
             model.apply(reset_parameters)
-            print("-------------------------------- inside random initialization --------------------------------")
-        elif self.lm_weights=="pretrained":
-            pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
-            model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
         else:
             print("LM weights not supported")
 
