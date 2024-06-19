@@ -94,12 +94,13 @@ def parse_args():
 
     parser.add_argument("--update_freq_text_enc", type=str, default=1)
     parser.add_argument("--lm_weights", type=str, default=1)
-
+    parser.add_argument("--num_of_additional_layer", type=str , default=1)
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
     args.update_freq_text_enc = int(args.update_freq_text_enc)
     args.wandb = int(args.wandb)
+    args.num_of_additional_layer = int(args.num_of_additional_layer)
     args.seed = utils.get_seed(args.seed)
     return args
 
@@ -141,6 +142,7 @@ def train(args):
         args.num_lstm_layer,
         args.lm_weights,
         args.num_player,
+        args.num_of_additional_layer,
         off_belief=False,
 
     )

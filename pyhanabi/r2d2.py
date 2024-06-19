@@ -19,6 +19,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         num_lstm_layer,
         lm_weights,
         num_of_player,
+        num_of_additional_layer,
         off_belief
 
     ):
@@ -39,17 +40,17 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
         elif net == "drrn-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
             ).to(device)
         elif net == "text-input-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
             ).to(device)
         # elif net == "mha":
         #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
@@ -69,6 +70,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.device = device
         self.lm_weights = lm_weights
         self.num_of_player = num_of_player
+        self.num_of_additional_layer = num_of_additional_layer
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -90,7 +92,8 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.num_lstm_layer,
             self.lm_weights,
             self.num_of_player,
-            self.off_belief,
+            self.num_of_additional_layer,
+            self.off_belief
         )
         cloned.load_state_dict(self.state_dict())
         cloned.train(self.training)

@@ -444,7 +444,7 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
 
 class TextLSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_of_additional_layer):
         super().__init__()
         # for backward compatibility
 
@@ -469,20 +469,32 @@ class TextLSTMNet(torch.jit.ScriptModule):
             num_layers=self.num_lstm_layer,
         ).to(device)
         self.state_lstm.flatten_parameters()
-
-        self.mlp = nn.Sequential(
-            nn.Linear(128, 256),  # Input size is 128, output is 256
-            nn.ReLU(),
-            nn.Linear(256, 128)  # Output size is 128 again to match with LSTM input size
-        )
-
+        self.num_of_additional_layer = num_of_additional_layer
+        # self.mlp = nn.Sequential(
+        #     nn.Linear(128, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, 128)
+        # )
+        self.mlp = self.create_mlp(128,256,128,self.num_of_additional_layer)
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
         self.lm_weights = lm_weights
         self.call_transformer = self.load_transformers(pretrained_model_name="cross-encoder/ms-marco-TinyBERT-L-2-v2")
-        
+
+    def create_mlp(self,input_dim, hidden_dim, output_dim, num_layers):
+        layers = []
+        hidden_dim_original = hidden_dim
+        layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(nn.ReLU())
+        for i in range(num_layers - 1):
+            layers.append(nn.Linear(hidden_dim, hidden_dim * 2))
+            layers.append(nn.ReLU())
+            hidden_dim = hidden_dim * 2
+        layers.append(nn.Linear(hidden_dim_original, output_dim))
+        return nn.Sequential(*layers)
+
     def load_transformers(self, pretrained_model_name):
         pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
         model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
