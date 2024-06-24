@@ -455,11 +455,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
-        if self.num_of_player==2:
-            self.path = '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may24/Zeroshot_hanabi_instructrl/pyhanabi/action_tokens/2p_action_ids.json'
-
-        elif self.num_of_player==3:
-            self.path = '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may24/Zeroshot_hanabi_instructrl/pyhanabi/action_tokens/3p_action_ids.json'
+        self.path = f'/home/mila/n/nekoeiha/scratch/llm_hanabi_hive/{num_of_player}p_action_ids.json'
 
         self.act_tok = self.load_json(self.path)
 

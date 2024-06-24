@@ -102,6 +102,13 @@ def parse_args():
     args.wandb = int(args.wandb)
     args.num_of_additional_layer = int(args.num_of_additional_layer)
     args.seed = utils.get_seed(args.seed)
+    if args.load_model:
+        save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
+        args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}_text_enc_frq_{args.update_freq_text_enc}'
+                         + f'_text_enc_{args.lm_weights}_layers_{args.num_of_additional_layer}_s_{args.seed}')
+    else:
+        args.save_dir = (args.save_dir + f'_np_{args.num_player}_text_enc_frq_{args.update_freq_text_enc}'
+                         + f'_text_enc_{args.lm_weights}_layers_{args.num_of_additional_layer}_s_{args.seed}')
     return args
 
 
@@ -114,6 +121,9 @@ def train(args):
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
     pprint.pprint(vars(args))
     utils.print_gpu_info()
+
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
 
     train_device = args.train_device
     act_device = args.act_device
@@ -229,6 +239,34 @@ def train(args):
 
     act_group.start()
     context.start()
+
+    if args.do_eval:
+        score, perfect, *_ = evaluate(
+            [agent],
+            1000,
+            np.random.randint(100000),
+            args.bomb,
+            num_player=args.num_player,
+            pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
+            pikl_betas=None if llm_prior is None else [args.pikl_beta],
+            llm_priors=None if llm_prior is None else [llm_prior],
+            hand_size=args.hand_size,
+            num_color=args.num_color,
+            num_rank=args.num_rank,
+            num_hint=args.num_hint,
+        )
+        perfect *= 100
+    else:
+        score, perfect = None, None
+
+    if args.wandb:
+        wandb.log({"epoch": 0, "score": score, "perfect": perfect})
+
+    print(
+        "Eval(epoch %d): score: %.4f, perfect: %.2f"
+        % (0, score, perfect)
+    )
+
     while replay_buffer.size() < args.burn_in_frames:
         print("warming up replay buffer:", replay_buffer.size())
         time.sleep(1)
@@ -336,16 +374,16 @@ def train(args):
                 score, perfect = None, None
 
             force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
-            # model_saved = saver.save(
-            #     online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
-            # )
-            model_saved = None
+            model_saved = saver.save(
+                online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
+            )
+            # model_saved = None
             if args.wandb:
-                wandb.log({"epoch": epoch, "score": score, "perfect": perfect})
+                wandb.log({"epoch": epoch+1, "score": score, "perfect": perfect})
 
             print(
                 "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"
-                % (epoch, score, perfect, model_saved)
+                % (epoch+1, score, perfect, model_saved)
             )
             context.resume()
 
@@ -359,8 +397,5 @@ def train(args):
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True  # type: ignore
     args = parse_args()
-
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
 
     train(args)
