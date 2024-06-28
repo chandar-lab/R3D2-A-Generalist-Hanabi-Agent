@@ -53,6 +53,7 @@ PYBIND11_MODULE(rela, m) {
       .def("terminate", &Replay::terminate)
       .def("size", &Replay::size)
       .def("num_add", &Replay::numAdd)
+      .def("num_act", &Replay::numAct)
       .def("sample", &Replay::sample)
       .def("get", &Replay::get)
       .def("get_range", &Replay::getRange);

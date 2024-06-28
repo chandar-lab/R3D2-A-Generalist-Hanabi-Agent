@@ -255,6 +255,7 @@ class Tachometer:
         self.num_train = 0
         self.t = None
         self.total_time = 0
+        self.num_of_actions = 0
 
     def start(self):
         self.t = time.time()
@@ -266,6 +267,9 @@ class Tachometer:
         t = time.time() - self.t
         self.total_time += t
         num_buffer = replay_buffer.num_add()
+
+        num_of_actions = replay_buffer.num_act()
+        size = replay_buffer.size()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
         train_rate = factor * num_train / t
 
@@ -286,6 +290,7 @@ class Tachometer:
         )
         self.num_buffer = num_buffer
         self.num_train += num_train
+        self.num_of_actions += num_of_actions
         print("Total Time: %s, %ds" % (common_utils.sec2str(self.total_time), self.total_time))
         print(
             "Total Sample: train: %s, buffer: %s"
@@ -294,8 +299,6 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
-        if use_wandb:
-            wandb.log({"train_steps": self.num_train, "act_steps": self.num_buffer})
         return sleep_time
 
 

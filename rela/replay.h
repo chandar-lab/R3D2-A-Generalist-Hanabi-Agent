@@ -4,6 +4,7 @@
 #include <thread>
 #include <vector>
 #include <queue>
+#include <typeinfo>
 
 #include "rela/tensor_dict.h"
 #include "rela/transition.h"
@@ -17,7 +18,8 @@ class Replay {
       : prefetch_(prefetch)
       , capacity_(capacity)
       , storage_(int(1.25 * capacity))
-      , numAdd_(0) {
+      , numAdd_(0)
+      , numAct_(0) {
     rng_.seed(seed);
   }
 
@@ -26,6 +28,7 @@ class Replay {
 
     storage_.clear();
     numAdd_ = 0;
+    numAct_ = 0;
   }
 
   void terminate() {
@@ -34,6 +37,9 @@ class Replay {
 
   void add(const RNNTransition& sample) {
     numAdd_ += 1;
+//    std::cout << "sample.seqLen " << typeid(sample.seqLen).name() << std::endl;
+//    std::cout << "Type of sample: " << typeid(sample).name() << std::endl;
+    numAct_ += sample.seqLen.item<int>();
     storage_.append(sample, 1);
   }
 
@@ -81,6 +87,9 @@ class Replay {
 
   int numAdd() const {
     return numAdd_;
+  }
+  int numAct() const {
+    return numAct_;
   }
 
  private:
@@ -138,7 +147,7 @@ class Replay {
 
   ConcurrentQueue storage_;
   std::atomic<int> numAdd_;
-
+  std::atomic<int> numAct_;
   std::mt19937 rng_;
 };
 
