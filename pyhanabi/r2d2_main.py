@@ -340,8 +340,9 @@ def train(args):
             #     online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
             # )
             model_saved = None
+
             if args.wandb:
-                wandb.log({"epoch": epoch, "score": score, "perfect": perfect})
+                wandb.log({"epoch": epoch, "score": score, "perfect": perfect, "episodes(num_buffer)":tachometer.num_buffer,"train_steps": tachometer.num_train, "action_steps": tachometer.num_of_actions})
 
             print(
                 "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"

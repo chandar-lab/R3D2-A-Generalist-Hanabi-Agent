@@ -485,14 +485,13 @@ class TextLSTMNet(torch.jit.ScriptModule):
 
     def create_mlp(self,input_dim, hidden_dim, output_dim, num_layers):
         layers = []
-        hidden_dim_original = hidden_dim
         layers.append(nn.Linear(input_dim, hidden_dim))
         layers.append(nn.ReLU())
         for i in range(num_layers - 1):
             layers.append(nn.Linear(hidden_dim, hidden_dim * 2))
             layers.append(nn.ReLU())
             hidden_dim = hidden_dim * 2
-        layers.append(nn.Linear(hidden_dim_original, output_dim))
+        layers.append(nn.Linear(hidden_dim, output_dim))
         return nn.Sequential(*layers)
 
     def load_transformers(self, pretrained_model_name):

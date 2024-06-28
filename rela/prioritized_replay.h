@@ -22,7 +22,8 @@ class PrioritizedReplay {
       , prefetch_(prefetch)
       , capacity_(capacity)
       , storage_(int(1.25 * capacity))
-      , numAdd_(0) {
+      , numAdd_(0)
+      , numAct_(0){
     assert(prefetch >= 0);
     rng_.seed(seed);
   }
@@ -34,6 +35,7 @@ class PrioritizedReplay {
     }
     storage_.clear();
     numAdd_ = 0;
+    numAct_ = 0;
   }
 
   void resetAlpha(float alpha) {
@@ -131,7 +133,9 @@ class PrioritizedReplay {
   int numAdd() const {
     return numAdd_;
   }
-
+  int numAct() const {
+    return numAct_;
+  }
  private:
   using SampleWeightIds = std::tuple<DataType, torch::Tensor, std::vector<int>>;
 
@@ -209,7 +213,7 @@ class PrioritizedReplay {
 
   ConcurrentQueue<DataType> storage_;
   std::atomic<int> numAdd_;
-
+  std::atomic<int> numAct_;
   // make sure that sample & update does not overlap
   std::mutex mSampler_;
   std::vector<int> sampledIds_;
