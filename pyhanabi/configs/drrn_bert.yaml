@@ -24,7 +24,7 @@ max_len: 80
 rnn_hid_dim: 128
 num_player: 2
 do_eval: 1
-save_dir: /home/mila/n/nekoeiha/scratch/llm_hanabi_hive/exps/
+save_dir: ~/scratch/llm_hanabi_hive/exps/
 wandb: 0
 update_freq_text_enc: 1
 lm_weights: lora

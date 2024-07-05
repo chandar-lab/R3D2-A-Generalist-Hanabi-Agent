@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from typing import Tuple, Dict
 import numpy as np
 from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
-from sentence_transformers import SentenceTransformer
 import copy
 from peft import LoraConfig
 from peft import get_peft_model
@@ -482,7 +481,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
-        self.path = f'/home/mila/n/nekoeiha/scratch/llm_hanabi_hive/{num_of_player}p_action_ids.json'
+        self.path = f'action_tokens/{num_of_player}p_action_ids.json'
 
         self.act_tok = self.load_json(self.path)
         self.lora_dim = lora_dim

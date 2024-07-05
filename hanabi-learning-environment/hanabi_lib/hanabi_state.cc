@@ -442,7 +442,7 @@ std::string HanabiState::ToText() const {
 
 
 std::unique_ptr<Tokenizer> load_tokenizer() {
-  auto path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+  auto path = "../hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
   std::ifstream fs(path, std::ios::in | std::ios::binary);
   if (fs.fail()) {
     std::cerr << "Cannot open " << path << std::endl;
