@@ -119,7 +119,7 @@ def parse_args():
 def train(args):
     common_utils.set_all_seeds(args.seed)
     if args.wandb:
-        wandb.init(project='r2d2_drrn', entity='nekoeihe', config=args)
+        wandb.init(project='r2d2_drrn', entity='sarath-chandar', config=args)
 
     logger_path = os.path.join(args.save_dir, f"train.log")
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
