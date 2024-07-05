@@ -20,6 +20,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         lm_weights,
         num_of_player,
         num_of_additional_layer,
+        lora_dim,
         off_belief
 
     ):
@@ -40,17 +41,17 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
         elif net == "drrn-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
             ).to(device)
         elif net == "text-input-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
             ).to(device)
         # elif net == "mha":
         #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
@@ -70,6 +71,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.device = device
         self.lm_weights = lm_weights
         self.num_of_player = num_of_player
+        self.lora_dim = lora_dim
         self.num_of_additional_layer = num_of_additional_layer
 
     @torch.jit.script_method
@@ -93,6 +95,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.lm_weights,
             self.num_of_player,
             self.num_of_additional_layer,
+            self.lora_dim,
             self.off_belief
         )
         cloned.load_state_dict(self.state_dict())

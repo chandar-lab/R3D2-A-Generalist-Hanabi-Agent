@@ -95,12 +95,16 @@ def parse_args():
     parser.add_argument("--update_freq_text_enc", type=str, default=1)
     parser.add_argument("--lm_weights", type=str, default=1)
     parser.add_argument("--num_of_additional_layer", type=str , default=1)
+    parser.add_argument("--lora_dim", type=str , default=0)
+
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
     args.update_freq_text_enc = int(args.update_freq_text_enc)
     args.wandb = int(args.wandb)
     args.num_of_additional_layer = int(args.num_of_additional_layer)
+    args.lora_dim = int(args.lora_dim)
+
     args.seed = utils.get_seed(args.seed)
     if args.load_model:
         save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
@@ -153,6 +157,7 @@ def train(args):
         args.lm_weights,
         args.num_player,
         args.num_of_additional_layer,
+        args.lora_dim,
         off_belief=False,
 
     )
@@ -258,9 +263,6 @@ def train(args):
         perfect *= 100
     else:
         score, perfect = None, None
-
-    if args.wandb:
-        wandb.log({"epoch": 0, "score": score, "perfect": perfect})
 
     print(
         "Eval(epoch %d): score: %.4f, perfect: %.2f"

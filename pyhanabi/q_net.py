@@ -7,6 +7,10 @@ import numpy as np
 from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
 from sentence_transformers import SentenceTransformer
 import copy
+from peft import LoraConfig
+from peft import get_peft_model
+from functools import partial
+
 
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
@@ -443,8 +447,31 @@ class PublicLSTMNet(torch.jit.ScriptModule):
         return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
 
 
+class LoRALayer(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, rank, alpha):
+        super().__init__()
+        std_dev = 1 / torch.sqrt(torch.tensor(rank).float())
+        self.A = torch.nn.Parameter(torch.randn(in_dim, rank) * std_dev)
+        self.B = torch.nn.Parameter(torch.zeros(rank, out_dim))
+        self.alpha = alpha
+
+    def forward(self, x):
+        x = self.alpha * (x @ self.A @ self.B)
+        return x
+
+class LinearWithLoRA(torch.nn.Module):
+    def __init__(self, linear, rank, alpha):
+        super().__init__()
+        self.linear = linear
+        self.lora = LoRALayer(
+            linear.in_features, linear.out_features, rank, alpha
+        )
+
+    def forward(self, x):
+        return self.linear(x) + self.lora(x)
+
 class TextLSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_of_additional_layer):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_of_additional_layer,lora_dim):
         super().__init__()
         # for backward compatibility
 
@@ -458,7 +485,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.path = f'/home/mila/n/nekoeiha/scratch/llm_hanabi_hive/{num_of_player}p_action_ids.json'
 
         self.act_tok = self.load_json(self.path)
-
+        self.lora_dim = lora_dim
         self.state_lstm = nn.LSTM(
             self.hid_dim,
             self.hid_dim,
@@ -471,7 +498,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         #     nn.ReLU(),
         #     nn.Linear(256, 128)
         # )
-        self.mlp = self.create_mlp(128,256,128,self.num_of_additional_layer)
+        # self.mlp = self.create_mlp(128,256,128,self.num_of_additional_layer)
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
         # for aux task
@@ -501,16 +528,53 @@ class TextLSTMNet(torch.jit.ScriptModule):
                 if hasattr(module, 'bias') and module.bias is not None:
                     torch.nn.init.constant_(module.bias, 0)
             model.apply(reset_parameters)
-        else:
-            print("LM weights not supported")
+        elif self.lm_weights=="lora":
+            for param in model.parameters():
+                param.requires_grad = False
+            lora_r = 64
+            lora_alpha = 16
+            lora_dropout = 0.05
+            lora_query = True
+            lora_key = False
+            lora_value = True
+            lora_projection = False
+            lora_mlp = False
+            lora_head = False
+
+            layers = []
+
+            assign_lora = partial(LinearWithLoRA, rank=lora_r, alpha=lora_alpha)
+
+            for layer in model.encoder.layer:
+                if lora_query:
+                    layer.attention.query = assign_lora(layer.attention.self.query)
+                if lora_key:
+                    layer.attention.key = assign_lora(layer.attention.self.key)
+                if lora_value:
+                    layer.attention.value = assign_lora(layer.attention.self.value)
+                if lora_projection:
+                    layer.attention.output = assign_lora(layer.attention.output)
+                if lora_mlp:
+                    layer.ffn.lin1 = assign_lora(layer.ffn.lin1)
+                    layer.ffn.lin2 = assign_lora(layer.ffn.lin2)
+            if lora_head:
+                model.pre_classifier = assign_lora(model.pre_classifier)
+                model.classifier = assign_lora(model.classifier)
+
+
+            # lora_config = LoraConfig(r=self.lora_dim, lora_alpha=0.99, lora_dropout=0.1)
+            #
+            # model = get_peft_model(model, lora_config)
+
 
         model.to(self.device)
-        model.eval()
+        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print('params lora', params)
         tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
         dummy_input = tokenizer("Hello, this is a TorchScript test", return_tensors='pt')
         input_ids = dummy_input['input_ids'].to(self.device)
 
-        # Trace the model with strict=False
         traced_model = torch.jit.trace(model, input_ids, strict=False)
         return traced_model
 
@@ -549,12 +613,12 @@ class TextLSTMNet(torch.jit.ScriptModule):
         assert priv_s.dim() == 2
         with torch.no_grad():
             x = self.call_transformer(priv_s)
-            x = self.mlp(x['last_hidden_state'].mean(dim=1).unsqueeze(0))
+            x = x['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
             o = o[-1, :, :]
             if self.out_dim == 1:
                 a = self.call_transformer(self.act_tok)
-                o_action = self.mlp(a['last_hidden_state'].mean(dim=1).unsqueeze(0))
+                o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
                 o = o_action * o.unsqueeze(1)
 
             a = self.fc_a(o)
@@ -588,7 +652,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         else:
             with torch.no_grad():
                 out = self.call_transformer(priv_s)
-        x = self.mlp(out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1))
+        x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
         hid = self.get_h0(x.shape[-2])
         if len(hid) == 0:
             o, _ = self.state_lstm(x)
@@ -596,7 +660,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
             o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
         if self.out_dim == 1:
             a = self.call_transformer(self.act_tok)
-            o_action = self.mlp(a['last_hidden_state'].mean(dim=1).unsqueeze(0))
+            o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o_action = o_action.unsqueeze(0)
             o_action = o_action * o.unsqueeze(2)
         else:

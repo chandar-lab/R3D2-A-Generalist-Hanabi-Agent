@@ -27,5 +27,6 @@ do_eval: 1
 save_dir: /home/mila/n/nekoeiha/scratch/llm_hanabi_hive/exps/
 wandb: 0
 update_freq_text_enc: 1
-lm_weights: random
-num_of_additional_layer: 1
+lm_weights: lora
+num_of_additional_layer: 0
+lora_dim: 0
