@@ -531,7 +531,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         elif self.lm_weights=="lora":
             for param in model.parameters():
                 param.requires_grad = False
-            lora_r = 64
             lora_alpha = 16
             lora_dropout = 0.05
             lora_query = True
@@ -543,7 +542,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
 
             layers = []
 
-            assign_lora = partial(LinearWithLoRA, rank=lora_r, alpha=lora_alpha)
+            assign_lora = partial(LinearWithLoRA, rank=self.lora_dim, alpha=lora_alpha)
 
             for layer in model.encoder.layer:
                 if lora_query:
