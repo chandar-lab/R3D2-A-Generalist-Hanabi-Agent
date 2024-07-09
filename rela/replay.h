@@ -39,7 +39,7 @@ class Replay {
     numAdd_ += 1;
 //    std::cout << "sample.seqLen " << typeid(sample.seqLen).name() << std::endl;
 //    std::cout << "Type of sample: " << typeid(sample).name() << std::endl;
-    numAct_ += sample.seqLen.item<int>();
+    numAct_ += static_cast<long long>(sample.seqLen.item<int>());
     storage_.append(sample, 1);
   }
 
@@ -147,7 +147,7 @@ class Replay {
 
   ConcurrentQueue storage_;
   std::atomic<int> numAdd_;
-  std::atomic<int> numAct_;
+  std::atomic<long long> numAct_;
   std::mt19937 rng_;
 };
 

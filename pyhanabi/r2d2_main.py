@@ -108,11 +108,11 @@ def parse_args():
     args.seed = utils.get_seed(args.seed)
     if args.load_model:
         save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
-        args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}_text_enc_frq_{args.update_freq_text_enc}'
-                         + f'_text_enc_{args.lm_weights}_layers_{args.num_of_additional_layer}_s_{args.seed}')
+        args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}_lora_dim_{str(args.lora_dim)}'
+                         + f'_text_enc_{args.lm_weights}_s_{args.seed}')
     else:
-        args.save_dir = (args.save_dir + f'_np_{args.num_player}_text_enc_frq_{args.update_freq_text_enc}'
-                         + f'_text_enc_{args.lm_weights}_layers_{args.num_of_additional_layer}_s_{args.seed}')
+        args.save_dir = (args.save_dir + f'_np_{args.num_player}_lora_dim_{str(args.lora_dim)}'
+                         + f'_text_enc_{args.lm_weights}_s_{args.seed}')
     return args
 
 

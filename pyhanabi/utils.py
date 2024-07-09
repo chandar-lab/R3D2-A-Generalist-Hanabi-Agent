@@ -290,6 +290,9 @@ class Tachometer:
         )
         self.num_buffer = num_buffer
         self.num_train += num_train
+
+        if self.num_of_actions==0: # to handle overflow
+            self.num_of_actions = int(self.num_of_actions)
         self.num_of_actions = num_of_actions
 
         print("Total Time: %s, %ds" % (common_utils.sec2str(self.total_time), self.total_time))
