@@ -113,7 +113,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         legal_move: torch.Tensor,
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        adv, new_hid = self.online_net.act(priv_s, publ_s, hid)
+        adv, new_hid = self.online_net.act(priv_s, publ_s, hid, legal_move)
         # print(f'adv: {adv}')
         legal_adv = (1 + adv - adv.min()) * legal_move
         greedy_action = legal_adv.argmax(1).detach()
@@ -130,7 +130,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         bp_logits: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         pikl_lambda = pikl_lambda.unsqueeze(1)
-        adv, new_hid = self.online_net.act(priv_s, publ_s, hid)
+        adv, new_hid = self.online_net.act(priv_s, publ_s, hid, legal_move)
         assert adv.size() == bp_logits.size()
         pikl_adv = adv + pikl_lambda * bp_logits
         legal_adv = pikl_adv - (1 - legal_move) * 1e10

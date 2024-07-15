@@ -481,9 +481,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
-        self.path = f'action_tokens/{num_of_player}p_action_ids.json'
+        # self.path = f'action_tokens/{num_of_player}p_action_ids.json'
+        #
+        # self.act_tok = self.load_json(self.path)
+        self.act_toks = []
+        for i in [2, 3]:
+            path = f'action_tokens/{i}p_action_ids.json'
+            self.act_toks.append(self.load_json(path))
 
-        self.act_tok = self.load_json(self.path)
         self.lora_dim = lora_dim
         self.state_lstm = nn.LSTM(
             self.hid_dim,
@@ -607,15 +612,19 @@ class TextLSTMNet(torch.jit.ScriptModule):
         priv_s: torch.Tensor,
         publ_s: torch.Tensor,
         hid: Dict[str, torch.Tensor],
+        legal_move: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
+        # legal_move = torch.zeros((1, 21))
+        num_players = int((legal_move.size()[1] - 1) / 10)
+        # print('num_players', num_players)
         with torch.no_grad():
             x = self.call_transformer(priv_s)
             x = x['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
             o = o[-1, :, :]
             if self.out_dim == 1:
-                a = self.call_transformer(self.act_tok)
+                a = self.call_transformer(self.act_toks[num_players-2])
                 o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
                 o = o_action * o.unsqueeze(1)
 
@@ -637,6 +646,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         assert (
             priv_s.dim() == 3 or priv_s.dim() == 2
         ), "dim = 3/2, [seq_len(optional), batch, dim]"
+        print('qnet 649', legal_move.size())
+        num_players = int((legal_move.size()[2] - 1) / 10)
 
         one_step = False
         priv_s = priv_s.to(self.device)
@@ -657,7 +668,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         else:
             o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
         if self.out_dim == 1:
-            a = self.call_transformer(self.act_tok)
+            a = self.call_transformer(self.act_toks[num_players-2])
             o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o_action = o_action.unsqueeze(0)
             o_action = o_action * o.unsqueeze(2)
