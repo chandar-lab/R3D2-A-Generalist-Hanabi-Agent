@@ -68,10 +68,10 @@ rela::TensorDict observe(
         encoder.EncodeARV0Belief(obs, std::vector<int>(), shuffleColor, colorPermute);
     feat["priv_ar_v0"] = torch::tensor(privARV0);
   }
-
+//  std::cout << "before util.cc legal moves";
   // legal moves
   const auto& legalMove = state.LegalMoves(playerIdx);
-  std::vector<float> vLegalMove(game.MaxMoves() + 1);
+  std::vector<float> vLegalMove(30 + 1); // game.MaxMoves()
   for (auto move : legalMove) {
     if (shuffleColor && move.MoveType() == hle::HanabiMove::Type::kRevealColor) {
       int permColor = colorPermute[move.Color()];
@@ -82,7 +82,7 @@ rela::TensorDict observe(
     vLegalMove[uid] = 1;
   }
   if (legalMove.size() == 0) {
-    vLegalMove[game.MaxMoves()] = 1;
+    vLegalMove[30] = 1; //game.MaxMoves()
   }
 
   feat["legal_move"] = torch::tensor(vLegalMove);

@@ -446,34 +446,37 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::decideMove(const HanabiEnv& env) {
   // get the real action
   auto curPlayer = env.getCurrentPlayer();
   std::unique_ptr<hle::HanabiMove> move;
-  if (curPlayer != playerIdx_) {
-    assert(action == env.noOpUid());
-  } else {
-    auto& state = env.getHleState();
-    move = std::make_unique<hle::HanabiMove>(state.ParentGame()->GetMove(action));
-    if (shuffleColor_ && move->MoveType() == hle::HanabiMove::Type::kRevealColor) {
-      int realColor = invColorPermute_[move->Color()];
-      move->SetColor(realColor);
-    }
 
-    if (replayBuffer_ == nullptr) {
-      // collect stats
-      if (move->MoveType() == hle::HanabiMove::kPlay) {
-        auto cardBelief = perCardPrivV0_[move->CardIndex()];
-        auto [colorKnown, rankKnown] = analyzeCardBelief(cardBelief);
+//  if (curPlayer != playerIdx_) {
+//    std::cout <<"curPlayer" << curPlayer<<"\n";
+//    std::cout <<"playerIdx_" << playerIdx_<<"\n";
+//    assert(action == env.noOpUid());
+//  } else {
+  auto& state = env.getHleState();
+  move = std::make_unique<hle::HanabiMove>(state.ParentGame()->GetMove(action));
+  if (shuffleColor_ && move->MoveType() == hle::HanabiMove::Type::kRevealColor) {
+    int realColor = invColorPermute_[move->Color()];
+    move->SetColor(realColor);
+  }
 
-        if (colorKnown && rankKnown) {
-          ++bothKnown_;
-        } else if (colorKnown) {
-          ++colorKnown_;
-        } else if (rankKnown) {
-          ++rankKnown_;
-        } else {
-          ++noneKnown_;
-        }
+  if (replayBuffer_ == nullptr) {
+  // collect stats
+    if (move->MoveType() == hle::HanabiMove::kPlay) {
+      auto cardBelief = perCardPrivV0_[move->CardIndex()];
+      auto [colorKnown, rankKnown] = analyzeCardBelief(cardBelief);
+
+      if (colorKnown && rankKnown) {
+        ++bothKnown_;
+      } else if (colorKnown) {
+        ++colorKnown_;
+      } else if (rankKnown) {
+        ++rankKnown_;
+      } else {
+        ++noneKnown_;
       }
     }
   }
+//  }
 
   if (offBelief_) {
     const auto& hand = fictState_->Hands()[playerIdx_];

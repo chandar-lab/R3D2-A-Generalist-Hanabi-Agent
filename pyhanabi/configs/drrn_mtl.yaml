@@ -6,7 +6,7 @@ train_device: cuda:0
 act_device: cuda:1
 vdn: 0
 num_epoch: 1000
-epoch_len: 5
+epoch_len: 500
 act_base_eps: 0.1
 gamma: 0.999
 multi_step: 1
@@ -23,7 +23,7 @@ batchsize: 64
 max_len: 80
 rnn_hid_dim: 128
 num_player: 2
-do_eval: 0
+do_eval: 1
 save_dir: ~/scratch/llm_hanabi_hive/exps/
 wandb: 0
 update_freq_text_enc: 1

@@ -27,6 +27,6 @@ do_eval: 1
 save_dir: ~/scratch/llm_hanabi_hive/exps/
 wandb: 0
 update_freq_text_enc: 1
-lm_weights: lora
+lm_weights: pretrained
 num_of_additional_layer: 0
 lora_dim: 0

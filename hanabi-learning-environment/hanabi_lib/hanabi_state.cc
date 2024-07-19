@@ -476,6 +476,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
   std::string path;
   int counter;
   initialize_tokenizer();
+  result += std::to_string(ParentGame()->NumPlayers()) + " player game. ";
   result +=  std::to_string(InformationTokens()) + " clue tokens available. ";
 
   result += std::to_string(LifeTokens())  + " life tokens remaining. ";

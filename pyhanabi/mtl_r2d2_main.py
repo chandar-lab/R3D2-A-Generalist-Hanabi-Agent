@@ -247,10 +247,9 @@ def train(args):
     else:
         score, perfect = None, None
 
-    # print(
-    #     "Eval(epoch %d): score: %.4f, perfect: %.2f"
-    #     % (0, score, perfect)
-    # )
+    print(
+        f"Eval(epoch 0): score: {score}, perfect: {perfect}"
+    )
 
     while replay_buffer.size() < args.burn_in_frames:
         print("warming up replay buffer:", replay_buffer.size())
