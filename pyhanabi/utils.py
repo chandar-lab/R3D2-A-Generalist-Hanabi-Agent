@@ -149,7 +149,7 @@ def load_agent(weight_file, overwrite):
         num_hint=cfg.get("num_hint", 8),
     )[0]
 
-    if "vdn" in cfg:
+    if "vdn" in cfg and cfg["vdn"]:
         # print("pikl_lambda:", cfg["pikl_lambda"])
         dqn_cfg = {
             "vdn": cfg.get("vdn", False),
@@ -161,29 +161,17 @@ def load_agent(weight_file, overwrite):
             "hid_dim": cfg["rnn_hid_dim"],
             "out_dim": game.num_action(),
             "num_lstm_layer": cfg["num_lstm_layer"],
-            "off_belief": cfg["off_belief"],
+            "off_belief": False, #cfg["off_belief"],
+            'lm_weights': cfg.get("lm_weights", None),
+            'num_of_player': cfg["num_player"],
+            'num_of_additional_layer': cfg["num_additional_layer"],
+            'lora_dim': cfg["lora_dim"],
         }
         agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
         load_weight(agent.online_net, weight_file, overwrite["device"])
         agent.sync_target_with_online()
-    elif cfg.get("method", "") == "iql":
-        # for legacy model
-        dqn_cfg = {
-            "vdn": False,
-            "multi_step": cfg["multi_step"],
-            "gamma": cfg["gamma"],
-            "device": overwrite["device"],
-            "net": cfg.get("net", "publ-lstm"),
-            "in_dim": game.feature_size(False),
-            "hid_dim": cfg["rnn_hid_dim"],
-            "out_dim": game.num_action(),
-            "num_lstm_layer": cfg["num_lstm_layer"],
-            "off_belief": cfg["off_belief"],
-        }
-        agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
-        load_weight(agent.online_net, weight_file, overwrite["device"])
-        agent.sync_target_with_online()
-    else:
+
+    elif cfg.get("method", "") == "ppo":
         ppo_cfg = {
             "ppo_clip": cfg["ppo_clip"],
             "ent_weight": cfg["ent_weight"],
@@ -199,6 +187,28 @@ def load_agent(weight_file, overwrite):
         }
         agent = ppo.PPOAgent(**ppo_cfg).to(overwrite["device"])
         load_weight(agent.policy_net, weight_file, overwrite["device"])
+        # for legacy model
+    else:
+        dqn_cfg = {
+            "vdn": False,
+            "multi_step": cfg["multi_step"],
+            "gamma": cfg["gamma"],
+            "device": overwrite["device"],
+            "net": cfg.get("net", "publ-lstm"),
+            "in_dim": game.feature_size(False),
+            "hid_dim": cfg["rnn_hid_dim"],
+            "out_dim": game.num_action(),
+            "num_lstm_layer": cfg["num_lstm_layer"],
+            "off_belief": False, #cfg["off_belief"],
+            'lm_weights': cfg.get("lm_weights", None),
+            'num_of_player': cfg["num_player"],
+            'num_of_additional_layer': cfg["num_of_additional_layer"],
+            'lora_dim': cfg["lora_dim"],
+        }
+        agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
+        load_weight(agent.online_net, weight_file, overwrite["device"])
+        agent.sync_target_with_online()
+
     return agent, cfg
 
 
@@ -261,8 +271,7 @@ class Tachometer:
         self.t = time.time()
 
     def lap(
-        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time,
-    use_wandb=False) -> float:
+        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time) -> float:
         assert self.t is not None
         t = time.time() - self.t
         self.total_time += t

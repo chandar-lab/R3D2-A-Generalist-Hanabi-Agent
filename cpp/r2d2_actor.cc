@@ -98,7 +98,8 @@ std::tuple<std::vector<hle::HanabiCardValue>, bool> filterSample(
 }
 
 std::tuple<bool, bool> analyzeCardBelief(const std::vector<float>& b) {
-  assert(b.size() == 25);
+//  std::cout <<"b.size()" << b.size()<<"\n";
+//  assert(b.size() == 25);
   std::set<int> colors;
   std::set<int> ranks;
   for (int c = 0; c < 5; ++c) {

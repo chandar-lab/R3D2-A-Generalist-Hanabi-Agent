@@ -19,10 +19,10 @@ class R2D2Agent(torch.jit.ScriptModule):
         num_lstm_layer,
         lm_weights,
         num_of_player,
-        num_of_additional_layer,
-        lora_dim,
-        off_belief
-
+        num_of_additional_layer=0,
+        num_lm_layer=1,
+        lora_dim=128,
+        off_belief=False,
     ):
         super().__init__()
         if net == "publ-lstm":
@@ -41,17 +41,17 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
         elif net == "drrn-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
+                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
             ).to(device)
         elif net == "text-input-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_of_additional_layer,lora_dim
+                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
             ).to(device)
         # elif net == "mha":
         #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
@@ -73,6 +73,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.num_of_player = num_of_player
         self.lora_dim = lora_dim
         self.num_of_additional_layer = num_of_additional_layer
+        self.num_lm_layer = num_lm_layer
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -95,6 +96,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.lm_weights,
             self.num_of_player,
             self.num_of_additional_layer,
+            self.num_lm_layer,
             self.lora_dim,
             self.off_belief
         )

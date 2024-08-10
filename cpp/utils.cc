@@ -71,7 +71,7 @@ rela::TensorDict observe(
 //  std::cout << "before util.cc legal moves";
   // legal moves
   const auto& legalMove = state.LegalMoves(playerIdx);
-  std::vector<float> vLegalMove(30 + 1); // game.MaxMoves()
+  std::vector<float> vLegalMove(50 + 1); // game.MaxMoves()
   for (auto move : legalMove) {
     if (shuffleColor && move.MoveType() == hle::HanabiMove::Type::kRevealColor) {
       int permColor = colorPermute[move.Color()];
@@ -82,7 +82,7 @@ rela::TensorDict observe(
     vLegalMove[uid] = 1;
   }
   if (legalMove.size() == 0) {
-    vLegalMove[30] = 1; //game.MaxMoves()
+    vLegalMove[50] = 1; //game.MaxMoves()
   }
 
   feat["legal_move"] = torch::tensor(vLegalMove);

@@ -40,13 +40,11 @@ if args.num_player == 2:
     if args.weight2 is None:
         args.weight2 = args.weight1
     weight_files = [args.weight1, args.weight2]
-elif args.num_player == 3:
+else:
     if args.weight2 is None:
         weight_files = [args.weight1 for _ in range(args.num_player)]
     else:
         weight_files = [args.weight1, args.weight2, args.weight3]
-else:
-    assert False
 
 overwrites = []
 for ovwt in [args.overwrite1, args.overwrite2]:

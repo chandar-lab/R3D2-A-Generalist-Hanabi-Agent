@@ -470,7 +470,7 @@ class LinearWithLoRA(torch.nn.Module):
         return self.linear(x) + self.lora(x)
 
 class TextLSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_of_additional_layer,lora_dim):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_lm_layer,lora_dim):
         super().__init__()
         # for backward compatibility
 
@@ -484,10 +484,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # self.path = f'action_tokens/{num_of_player}p_action_ids.json'
         #
         # self.act_tok = self.load_json(self.path)
-        self.act_toks = []
-        for i in [2, 3]:
-            path = f'action_tokens/{i}p_action_ids.json'
-            self.act_toks.append(self.load_json(path))
+        path = f'action_tokens/5p_action_ids.json'
+        self.act_toks = self.load_json(path)
 
         self.lora_dim = lora_dim
         self.state_lstm = nn.LSTM(
@@ -496,13 +494,13 @@ class TextLSTMNet(torch.jit.ScriptModule):
             num_layers=self.num_lstm_layer,
         ).to(device)
         self.state_lstm.flatten_parameters()
-        self.num_of_additional_layer = num_of_additional_layer
+        self.num_lm_layer = num_lm_layer
         # self.mlp = nn.Sequential(
         #     nn.Linear(128, 256),
         #     nn.ReLU(),
         #     nn.Linear(256, 128)
         # )
-        # self.mlp = self.create_mlp(128,256,128,self.num_of_additional_layer)
+        # self.mlp = self.create_mlp(128,256,128,self.num_lm_layer)
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
         # for aux task
@@ -564,11 +562,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
                 model.pre_classifier = assign_lora(model.pre_classifier)
                 model.classifier = assign_lora(model.classifier)
 
-
-            # lora_config = LoraConfig(r=self.lora_dim, lora_alpha=0.99, lora_dropout=0.1)
-            #
-            # model = get_peft_model(model, lora_config)
-
+        model = self.deleteEncodingLayers(model, self.num_lm_layer)
 
         model.to(self.device)
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -616,7 +610,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
         # legal_move = torch.zeros((1, 21))
-        num_players = int((legal_move.size()[1] - 1) / 10)
+        # num_players = int((legal_move.size()[1] - 1) / 10)
         # print('num_players', num_players)
         with torch.no_grad():
             x = self.call_transformer(priv_s)
@@ -624,14 +618,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
             o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
             o = o[-1, :, :]
             if self.out_dim == 1:
-                a = self.call_transformer(self.act_toks[num_players-2])
+                a = self.call_transformer(self.act_toks)
                 o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
                 o = o_action * o.unsqueeze(1)
 
             a = self.fc_a(o)
             a = a.view(hid["h0"].shape[1], -1)
 
-        return a, {"h0": h, "c0": c}
+        return a, {"h0": h.detach(), "c0": c.detach()}
 
     @torch.jit.script_method
     def forward(
@@ -646,8 +640,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         assert (
             priv_s.dim() == 3 or priv_s.dim() == 2
         ), "dim = 3/2, [seq_len(optional), batch, dim]"
-        print('qnet 649', legal_move.size())
-        num_players = int((legal_move.size()[2] - 1) / 10)
+        # print('qnet 649', legal_move.size())
+        # num_players = int((legal_move.size()[2] - 1) / 10)
 
         one_step = False
         priv_s = priv_s.to(self.device)
@@ -668,7 +662,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         else:
             o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
         if self.out_dim == 1:
-            a = self.call_transformer(self.act_toks[num_players-2])
+            a = self.call_transformer(self.act_toks)
             o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o_action = o_action.unsqueeze(0)
             o_action = o_action * o.unsqueeze(2)

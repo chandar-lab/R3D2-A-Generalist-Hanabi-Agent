@@ -70,6 +70,7 @@ def parse_args():
     parser.add_argument("--max_len", type=int, default=80, help="max seq len")
     parser.add_argument("--prefetch", type=int, default=3, help="#prefetch batch")
     parser.add_argument("--burn_in_frames", type=int, default=1000)
+    parser.add_argument("--eval_freq", type=int, default=20)
 
     # llm setting
     parser.add_argument("--llm_prior", type=str, default=None)
@@ -95,6 +96,7 @@ def parse_args():
     parser.add_argument("--update_freq_text_enc", type=str, default=1)
     parser.add_argument("--lm_weights", type=str, default=1)
     parser.add_argument("--num_of_additional_layer", type=str , default=1)
+    parser.add_argument("--num_lm_layer", type=str , default=1)
     parser.add_argument("--lora_dim", type=str , default=0)
 
 
@@ -102,7 +104,7 @@ def parse_args():
     args = common_utils.maybe_load_config(args)
     args.update_freq_text_enc = int(args.update_freq_text_enc)
     args.wandb = int(args.wandb)
-    args.num_of_additional_layer = int(args.num_of_additional_layer)
+    args.num_lm_layer = int(args.num_lm_layer)
     args.lora_dim = int(args.lora_dim)
 
     args.seed = utils.get_seed(args.seed)
@@ -132,7 +134,7 @@ def train(args):
     train_device = args.train_device
     act_device = args.act_device
     games = []
-    players_list= [2, 3]
+    players_list= [2, 3, 4, 5]
     for num_player in players_list:
         games.append(create_envs(
             args.num_thread * args.num_game_per_thread,
@@ -159,6 +161,7 @@ def train(args):
         args.lm_weights,
         args.num_player, # num_players
         args.num_of_additional_layer,
+        args.num_lm_layer,
         args.lora_dim,
         off_belief=False,
 
@@ -229,27 +232,34 @@ def train(args):
         contexts[i-2].start()
 
     if args.do_eval:
-        score, perfect, *_ = evaluate(
-            [agent],
-            1000,
-            np.random.randint(100000),
-            args.bomb,
-            num_player=args.num_player,
-            pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
-            pikl_betas=None if llm_prior is None else [args.pikl_beta],
-            llm_priors=None if llm_prior is None else [llm_prior],
-            hand_size=args.hand_size,
-            num_color=args.num_color,
-            num_rank=args.num_rank,
-            num_hint=args.num_hint,
-        )
-        perfect *= 100
+        wandb_metrics = {}
+        for i in players_list:
+            score, perfect, *_ = evaluate(
+                [agent],
+                1000,
+                np.random.randint(100000),
+                args.bomb,
+                num_player=i,
+                pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
+                pikl_betas=None if llm_prior is None else [args.pikl_beta],
+                llm_priors=None if llm_prior is None else [llm_prior],
+                hand_size=args.hand_size,
+                num_color=args.num_color,
+                num_rank=args.num_rank,
+                num_hint=args.num_hint,
+            )
+            perfect *= 100
+            print(
+                f"Eval(epoch 0): {i}-player score: {score}, perfect: {perfect}"
+            )
+            if args.wandb:
+                wandb_metrics.update({f"{i}-player_score": score, f"{i}-player_perfect": perfect})
+        if args.wandb:
+            wandb_metrics.update({"epoch": 0})
+            wandb.log(wandb_metrics)
     else:
         score, perfect = None, None
 
-    print(
-        f"Eval(epoch 0): score: {score}, perfect: {perfect}"
-    )
 
     while replay_buffer.size() < args.burn_in_frames:
         print("warming up replay buffer:", replay_buffer.size())
@@ -295,13 +305,17 @@ def train(args):
             with stopwatch.time("sample data"):
                 batch = replay_buffer.sample(args.batchsize, train_device)
 
-            with stopwatch.time("forward & backward"):
+            with stopwatch.time("forward"):
                 update_text_encoder = False
                 if num_update % args.update_freq_text_enc == 0:
                     update_text_encoder = True
                 loss = agent.loss(batch, args.aux_weight, stat, update_text_encoder)
                 loss = loss.mean()
+
+            with stopwatch.time("backward"):
                 loss.backward()
+
+            with stopwatch.time("synchronize"):
                 torch.cuda.synchronize()
 
             with stopwatch.time("optim step"):
@@ -309,6 +323,7 @@ def train(args):
                 optim.step()
                 optim.zero_grad()
                 torch.cuda.synchronize()
+                torch.cuda.empty_cache()
 
             with stopwatch.time("sleep"):
                 if sleep_time > 0:
@@ -325,8 +340,7 @@ def train(args):
                 count_factor,
                 num_batch=args.epoch_len,
                 target_ratio=args.target_data_ratio,
-                current_sleep_time=sleep_time,
-                use_wandb=args.wandb
+                current_sleep_time=sleep_time
             )
             sleep_time = 0.6 * sleep_time + 0.4 * new_sleep_time
             print(
@@ -336,26 +350,43 @@ def train(args):
 
             stat.summary(epoch)
 
-            for i in players_list:
-                contexts[i-2].pause()
-            if args.do_eval:
+            if args.do_eval and (epoch+1) % args.eval_freq == 0:
+
+                for i in players_list:
+                    contexts[i - 2].pause()
+
                 print(common_utils.get_mem_usage("(before eval)"))
-                score, perfect, *_ = evaluate(
-                    [agent],
-                    1000,
-                    np.random.randint(100000),
-                    args.bomb,
-                    num_player=args.num_player,
-                    pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
-                    pikl_betas=None if llm_prior is None else [args.pikl_beta],
-                    llm_priors=None if llm_prior is None else [llm_prior],
-                    hand_size=args.hand_size,
-                    num_color=args.num_color,
-                    num_rank=args.num_rank,
-                    num_hint=args.num_hint,
-                )
-                perfect *= 100
+                wandb_metrics = {}
+                for i in players_list:
+                    score, perfect, *_ = evaluate(
+                        [agent],
+                        1000,
+                        np.random.randint(100000),
+                        args.bomb,
+                        num_player=i,
+                        pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
+                        pikl_betas=None if llm_prior is None else [args.pikl_beta],
+                        llm_priors=None if llm_prior is None else [llm_prior],
+                        hand_size=args.hand_size,
+                        num_color=args.num_color,
+                        num_rank=args.num_rank,
+                        num_hint=args.num_hint,
+                    )
+                    perfect *= 100
+                    print(
+                        f"Eval(epoch {epoch}): {i}-player score: {score}, perfect: {perfect}"
+                    )
+                    if args.wandb:
+                        wandb_metrics.update({f"{i}-player_score": score, f"{i}-player_perfect": perfect})
+                if args.wandb:
+                    wandb_metrics.update({"epoch": epoch, "episodes(num_buffer)": tachometer.num_buffer, "train_steps": tachometer.num_train,
+                               "action_steps": tachometer.num_of_actions})
+                    wandb.log(wandb_metrics)
                 print(common_utils.get_mem_usage("(after eval)"))
+
+                for i in players_list:
+                    contexts[i-2].resume()
+
             else:
                 score, perfect = None, None
 
@@ -364,15 +395,11 @@ def train(args):
             model_saved = saver.save(
                 online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
             )
-            if args.wandb:
-                wandb.log({"epoch": epoch, "score": score, "perfect": perfect, "episodes(num_buffer)":tachometer.num_buffer,"train_steps": tachometer.num_train, "action_steps": tachometer.num_of_actions})
 
             # print(
-            #     "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"
-            #     % (epoch+1, score, perfect, model_saved)
+            #     f"Eval(epoch {epoch+1}): score: {score}, perfect: {perfect}, model saved: {model_saved}"
             # )
-            for i in players_list:
-                contexts[i-2].resume()
+
 
         stopwatch.summary()
         print("=" * 100)

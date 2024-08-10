@@ -535,7 +535,7 @@ std::vector<int>  HanabiState::ToTokenize() const {
 //  auto tok = std::move(Tokenizer::FromBlobJSON(data));
 //
   std::vector<int> ids = private_tok->Encode(result);
-  ids.resize(128, 0);
+  ids.resize(196, 0);
   return ids;
 }
 
