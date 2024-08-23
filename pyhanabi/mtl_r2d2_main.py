@@ -4,7 +4,7 @@ import sys
 import argparse
 import pprint
 import pickle
-
+import json
 import numpy as np
 import torch
 
@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument("--max_len", type=int, default=80, help="max seq len")
     parser.add_argument("--prefetch", type=int, default=3, help="#prefetch batch")
     parser.add_argument("--burn_in_frames", type=int, default=1000)
-    parser.add_argument("--eval_freq", type=int, default=20)
+    parser.add_argument("--eval_freq", type=int, default=5)
 
     # llm setting
     parser.add_argument("--llm_prior", type=str, default=None)
@@ -99,6 +99,9 @@ def parse_args():
     parser.add_argument("--num_lm_layer", type=str , default=1)
     parser.add_argument("--lora_dim", type=str , default=0)
 
+    # slurm job arguments to relaunch the program
+    parser.add_argument("--start_epoch", type=int, default=0)
+    parser.add_argument("--end_epoch", type=int, default=20)
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
@@ -108,13 +111,14 @@ def parse_args():
     args.lora_dim = int(args.lora_dim)
 
     args.seed = utils.get_seed(args.seed)
-    if args.load_model:
-        save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
-        args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}_lora_dim_{str(args.lora_dim)}'
-                         + f'_text_enc_{args.lm_weights}_s_{args.seed}')
-    else:
-        args.save_dir = (args.save_dir + f'_np_{args.num_player}_lora_dim_{str(args.lora_dim)}'
-                         + f'_text_enc_{args.lm_weights}_s_{args.seed}')
+    #
+    # if args.load_model:
+    #     save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
+    #     args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}'
+    #                      + f'_text_enc_{args.lm_weights}_s_{args.seed}')
+    # else:
+
+    # args.save_dir = (args.save_dir + f'_np_{args.num_player}' + f'_text_enc_{args.lm_weights}_s_{args.seed}')
     return args
 
 
@@ -123,7 +127,7 @@ def train(args):
     if args.wandb:
         wandb.init(project='r2d2_drrn', entity='sarath-chandar', config=args)
 
-    logger_path = os.path.join(args.save_dir, f"train.log")
+    logger_path = os.path.join(args.save_dir, f"train_"+str(args.start_epoch)+'.log')
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
     pprint.pprint(vars(args))
     utils.print_gpu_info()
@@ -252,6 +256,9 @@ def train(args):
             print(
                 f"Eval(epoch 0): {i}-player score: {score}, perfect: {perfect}"
             )
+
+            train_eval_metrics[0] = [perfect, score ,0 , 0, 0]
+
             if args.wandb:
                 wandb_metrics.update({f"{i}-player_score": score, f"{i}-player_perfect": perfect})
         if args.wandb:
@@ -266,7 +273,6 @@ def train(args):
         time.sleep(1)
     print("Success, Done")
     print("=" * 100)
-
     frame_stat = dict()
     frame_stat["num_acts"] = 0
     frame_stat["num_buffer"] = 0
@@ -276,7 +282,7 @@ def train(args):
     stopwatch = common_utils.Stopwatch()
     sleep_time = 0
 
-    for epoch in range(args.num_epoch):
+    for epoch in range(args.start_epoch, args.end_epoch + 1):
         # if (args.pikl_lambda > 0
         #     and epoch > 0
         #     and args.pikl_anneal_per > 0
@@ -285,7 +291,7 @@ def train(args):
         #     args.pikl_lambda *= args.pikl_anneal_rate
         #     for actor in act_group.flat_actors:
         #         actor.update_llm_lambda([args.pikl_lambda])
-
+        print("start_epoch",args.start_epoch)
         print(f"EPOCH: {epoch}, pikl_lambda={args.pikl_lambda}")
         print(common_utils.get_mem_usage("(epoch start)"))
         tachometer.start()
@@ -334,7 +340,7 @@ def train(args):
 
         with stopwatch.time("eval & others"):
             count_factor = 1 if not args.vdn else args.num_player
-            new_sleep_time = tachometer.lap(
+            new_sleep_time, train_steps, trajectories, num_of_actions = tachometer.lap(
                 replay_buffer,
                 args.epoch_len * args.batchsize,
                 count_factor,
@@ -386,12 +392,22 @@ def train(args):
 
                 for i in players_list:
                     contexts[i-2].resume()
+                #
+                # train_eval_metrics['perfect'] = perfect
+                # train_eval_metrics['score'] = score
+                # train_eval_metrics['train_steps'] = train_steps
+                # train_eval_metrics['num_of_traj'] = trajectories
+                # train_eval_metrics['num_of_actions'] = num_of_actions
+                # train_eval_metrics['epoch'] = epoch
+
 
             else:
                 score, perfect = None, None
 
+            train_eval_metrics[epoch] = [perfect, score, train_steps, trajectories, num_of_actions]
+
             force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
-            
+
             model_saved = saver.save(
                 online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
             )
@@ -404,6 +420,13 @@ def train(args):
         stopwatch.summary()
         print("=" * 100)
 
+    # check the file exist
+    # previously, if exists use it or create a new dict
+    # overwrite on the same file
+
+    with open(train_eval_metrics_path, 'w') as file:
+        json.dump(train_eval_metrics, file)
+        print(f"Dictionary saved to {train_eval_metrics_path}")
     # force quit, "nicely"
     os._exit(0)
 

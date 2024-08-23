@@ -312,7 +312,7 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
-        return sleep_time
+        return sleep_time, self.num_train, self.num_buffer, self.num_of_actions
 
 
 def load_weight(model, weight_file, device, *, state_dict=None):
