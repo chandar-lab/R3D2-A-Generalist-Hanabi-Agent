@@ -138,7 +138,11 @@ def train(args):
     train_device = args.train_device
     act_device = args.act_device
     games = []
-    players_list= [2, 3, 4, 5]
+    if args.num_player==6:
+        players_list=[2,3,4,5]
+    else:
+        players_list = [args.num_player]
+    # players_list= [2]
     for num_player in players_list:
         games.append(create_envs(
             args.num_thread * args.num_game_per_thread,
@@ -195,7 +199,7 @@ def train(args):
     print("avg explore eps:", np.mean(explore_eps))
     act_groups = []
     contexts = []
-    for i in players_list:
+    for i,p in enumerate(players_list):
         # making input arguments
         act_group_args = {
             "devices": act_device,
@@ -203,14 +207,14 @@ def train(args):
             "seed": args.seed,
             "num_thread": args.num_thread,
             "num_game_per_thread": args.num_game_per_thread,
-            "num_player": i,
+            "num_player": p,
             "replay_buffer": replay_buffer,
             "method_batchsize": {"act": 5000},
             "explore_eps": explore_eps,
         }
 
         act_group_args["actor_args"] = {
-            "num_player": i,
+            "num_player": p,
             "vdn": args.vdn,
             "sad": False,
             "shuffle_color": args.shuffle_color,
@@ -228,22 +232,33 @@ def train(args):
         contexts.append(create_threads(
             args.num_thread,
             args.num_game_per_thread,
-            act_groups[i-2].actors,
-            games[i-2],
+            act_groups[i].actors,
+            games[i],
         )[0])
 
-        act_groups[i-2].start()
-        contexts[i-2].start()
+        act_groups[i].start()
+        contexts[i].start()
 
-    if args.do_eval:
+    train_eval_metrics_path = args.save_dir + '/train_eval_metrics.json'
+    if os.path.exists(train_eval_metrics_path):
+        # Load the dictionary from the JSON file
+        with open(train_eval_metrics_path, 'r') as file:
+            train_eval_metrics = json.load(file)
+        print(f"Dictionary loaded from {train_eval_metrics_path}")
+    else:
+        # Create a new dictionary
+        train_eval_metrics = {}
+        print(f"No file found at {train_eval_metrics_path}. Created a new dictionary.")
+
+    if args.do_eval and args.start_epoch==1:
         wandb_metrics = {}
-        for i in players_list:
+        for i,p in enumerate(players_list):
             score, perfect, *_ = evaluate(
                 [agent],
-                1000,
+                10,
                 np.random.randint(100000),
                 args.bomb,
-                num_player=i,
+                num_player=p,
                 pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
                 pikl_betas=None if llm_prior is None else [args.pikl_beta],
                 llm_priors=None if llm_prior is None else [llm_prior],
@@ -254,13 +269,13 @@ def train(args):
             )
             perfect *= 100
             print(
-                f"Eval(epoch 0): {i}-player score: {score}, perfect: {perfect}"
+                f"Eval(epoch 0): {p}-player score: {score}, perfect: {perfect}"
             )
 
             train_eval_metrics[0] = [perfect, score ,0 , 0, 0]
 
             if args.wandb:
-                wandb_metrics.update({f"{i}-player_score": score, f"{i}-player_perfect": perfect})
+                wandb_metrics.update({f"{p}-player_score": score, f"{p}-player_perfect": perfect})
         if args.wandb:
             wandb_metrics.update({"epoch": 0})
             wandb.log(wandb_metrics)
@@ -304,8 +319,8 @@ def train(args):
                 if num_update % args.num_update_between_sync == 0:
                     agent.sync_target_with_online()
                 if num_update % args.actor_sync_freq == 0:
-                    for i in players_list:
-                        act_groups[i-2].update_model(agent)
+                    for i,p in enumerate(players_list):
+                        act_groups[i].update_model(agent)
                 torch.cuda.synchronize()
 
             with stopwatch.time("sample data"):
@@ -358,18 +373,18 @@ def train(args):
 
             if args.do_eval and (epoch+1) % args.eval_freq == 0:
 
-                for i in players_list:
-                    contexts[i - 2].pause()
+                for i,p in enumerate(players_list):
+                    contexts[i].pause()
 
                 print(common_utils.get_mem_usage("(before eval)"))
                 wandb_metrics = {}
-                for i in players_list:
+                for i,p in enumerate(players_list):
                     score, perfect, *_ = evaluate(
                         [agent],
-                        1000,
+                        10,
                         np.random.randint(100000),
                         args.bomb,
-                        num_player=i,
+                        num_player=p,
                         pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
                         pikl_betas=None if llm_prior is None else [args.pikl_beta],
                         llm_priors=None if llm_prior is None else [llm_prior],
@@ -380,18 +395,18 @@ def train(args):
                     )
                     perfect *= 100
                     print(
-                        f"Eval(epoch {epoch}): {i}-player score: {score}, perfect: {perfect}"
+                        f"Eval(epoch {epoch}): {p}-player score: {score}, perfect: {perfect}"
                     )
                     if args.wandb:
-                        wandb_metrics.update({f"{i}-player_score": score, f"{i}-player_perfect": perfect})
+                        wandb_metrics.update({f"{p}-player_score": score, f"{p}-player_perfect": perfect})
                 if args.wandb:
                     wandb_metrics.update({"epoch": epoch, "episodes(num_buffer)": tachometer.num_buffer, "train_steps": tachometer.num_train,
                                "action_steps": tachometer.num_of_actions})
                     wandb.log(wandb_metrics)
                 print(common_utils.get_mem_usage("(after eval)"))
 
-                for i in players_list:
-                    contexts[i-2].resume()
+                for i,p in enumerate(players_list):
+                    contexts[i].resume()
                 #
                 # train_eval_metrics['perfect'] = perfect
                 # train_eval_metrics['score'] = score
