@@ -15,10 +15,10 @@ module load cuda/11.8   # Example: adjust to your environment
 SEED=$1
 PLAYER=$2
 TOTAL_EPOCHS=2500
-EPOCHS_PER_RUN=20
+EPOCHS_PER_RUN=$3
 CHECKPOINT_DIR="/home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/multitask_learning"
 
-CHECKPOINT_PATH="${CHECKPOINT_DIR}/${PLAYER}/${SEED}"
+CHECKPOINT_PATH="${CHECKPOINT_DIR}/${PLAYER}/${EPOCHS_PER_RUN}/${SEED}"
 
 if [[ $PLAYER -eq 2 || $PLAYER -eq 3 || $PLAYER -eq 4 || $PLAYER -eq 5 ]]; then
     NUM_THREADS=40

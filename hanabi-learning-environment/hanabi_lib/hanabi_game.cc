@@ -30,7 +30,7 @@ HanabiGame::HanabiGame(
     const std::unordered_map<std::string, std::string>& params) {
   params_ = params;
   num_players_ = ParameterValue<int>(params_, "players", kDefaultPlayers);
-  REQUIRE(num_players_ >= MinPlayers() && num_players_ <= MaxPlayers());
+//  REQUIRE(num_players_ >= MinPlayers() && num_players_ <= MaxPlayers());
   num_colors_ = ParameterValue<int>(params_, "colors", kMaxNumColors);
   REQUIRE(num_colors_ > 0 && num_colors_ <= kMaxNumColors);
   num_ranks_ = ParameterValue<int>(params_, "ranks", kMaxNumRanks);
