@@ -70,7 +70,7 @@ class Replay {
     return batch;
   }
 
-  RNNTransition get(int idx) {
+  RNNTransition get(int idx) const {
     return storage_.get(idx);
   }
 
@@ -93,7 +93,7 @@ class Replay {
     return numAct_;
   }
 
- private:
+// private:
   void sampleLoop_(int batchsize, const std::string& device) {
     while (true) {
       auto batch = sample_(batchsize, device);

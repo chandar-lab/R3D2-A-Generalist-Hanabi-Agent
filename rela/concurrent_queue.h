@@ -131,7 +131,7 @@ class ConcurrentQueue {
 
   // ------------------------------------------------------------- //
   // accessing elements is never locked, operate safely!
-  RNNTransition get(int idx) {
+  RNNTransition get(int idx) const {
     int id = (head_ + idx) % capacity;
     return elements_->index(id);
   }

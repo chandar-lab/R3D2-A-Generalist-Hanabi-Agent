@@ -176,22 +176,37 @@ def train(args):
     )
     print(agent)
 
+
     if args.load_model and args.load_model != "None":
         print("*****loading pretrained model*****")
         print(args.load_model)
+        print(args.load_model.replace('epoch','epoch_optim').replace('.pthw','.pth'))
         online_net = utils.get_agent_online_network(agent, False)
         utils.load_weight(online_net, args.load_model, train_device)
+        optim = torch.optim.Adam(online_net.parameters(), lr=args.lr, eps=args.eps)
+        optim.load_state_dict(torch.load(args.load_model.replace('epoch','epoch_optim').replace('.pthw','.pth') ,map_location=train_device))
+
+        head, tail = args.load_model.rsplit('/', 1)  # head is the directory, tail is the filename
+        # Replace the epoch in the filename and change the extension
+        filename_buffer = f'replay_buffer.pth'
+        # Construct the new path
+        replay_buffer_path = f'{head}/{filename_buffer}'
+        print('replay_buffer_path', replay_buffer_path)
+
+        replay_buffer = torch.load(replay_buffer_path)
+
         print("***************done***************")
+    else:
+        online_net = utils.get_agent_online_network(agent, False)
+        optim = torch.optim.Adam(online_net.parameters(), lr=args.lr, eps=args.eps)
+        replay_buffer = rela.RNNReplay(  # type: ignore
+            args.replay_buffer_size,
+            args.seed,
+            args.prefetch,
+        )
 
     saver = common_utils.TopkSaver(args.save_dir, 5)
-    online_net = utils.get_agent_online_network(agent, False)
-    optim = torch.optim.Adam(online_net.parameters(), lr=args.lr, eps=args.eps)
 
-    replay_buffer = rela.RNNReplay(  # type: ignore
-        args.replay_buffer_size,
-        args.seed,
-        args.prefetch,
-    )
 
     explore_eps = utils.generate_explore_eps(args.act_base_eps, args.act_eps_alpha, args.num_eps)
     eps_str = [[f"\n{eps:.9f}", f"{eps:.9f}"][i % 5 != 0]  for i, eps in enumerate(explore_eps)]
@@ -422,11 +437,12 @@ def train(args):
             train_eval_metrics[epoch] = [perfect, score, train_steps, trajectories, num_of_actions]
 
             force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
-
+            force_save_optim = f"epoch_optim{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
             model_saved = saver.save(
-                online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
+                online_net.state_dict(),optim.state_dict(),replay_buffer, score, force_save_name=force_save , force_save_name_optim= force_save_optim,force_replay_buffer_path= 'replay_buffer.pth', config=vars(args)
             )
 
+            # torch.save(optim.state_dict(), '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/drrn_baselines/optimizer.pth')
             # print(
             #     f"Eval(epoch {epoch+1}): score: {score}, perfect: {perfect}, model saved: {model_saved}"
             # )
