@@ -439,7 +439,7 @@ def train(args):
             force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
             force_save_optim = f"epoch_optim{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
             model_saved = saver.save(
-                online_net.state_dict(),optim.state_dict(),replay_buffer, score, force_save_name=force_save , force_save_name_optim= force_save_optim,force_replay_buffer_path= 'replay_buffer.pth', config=vars(args)
+                online_net.state_dict(),optim.state_dict(),replay_buffer, score, force_save_name=force_save , force_save_name_optim= force_save_optim,force_replay_buffer_path= 'replay_buffer', config=vars(args)
             )
 
             # torch.save(optim.state_dict(), '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/drrn_baselines/optimizer.pth')
