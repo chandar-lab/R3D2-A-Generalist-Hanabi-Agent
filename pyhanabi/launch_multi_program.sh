@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=71:59:00
-#SBATCH -o /home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/multitask_learning/logs/cool_job-%j.out
+#SBATCH -o /home/mila/m/mathieu.reymond/scratch/v2_hanabi_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
@@ -15,8 +15,8 @@ module load cuda/11.8   # Example: adjust to your environment
 SEED=$1
 PLAYER=$2
 TOTAL_EPOCHS=2500
-EPOCHS_PER_RUN=$3
-CHECKPOINT_DIR="/home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/multitask_learning"
+EPOCHS_PER_RUN=20
+CHECKPOINT_DIR="/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2"
 
 CHECKPOINT_PATH="${CHECKPOINT_DIR}/${PLAYER}/${EPOCHS_PER_RUN}/${SEED}"
 
@@ -29,7 +29,7 @@ fi
 # Initialize start epoch
 START_EPOCH=1
 
-cp -r /home/mila/a/arjun.vaithilingam-sudhakar/scratch/multitask_learning_hanabi/Zeroshot_hanabi_instructrl/* $SLURM_TMPDIR
+cp -r /home/mila/m/mathieu.reymond/dev/v2_hanabi_multi_task/Zeroshot_hanabi_instructrl/* $SLURM_TMPDIR
 
 cd $SLURM_TMPDIR/pyhanabi/
 

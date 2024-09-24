@@ -2,6 +2,7 @@
 
 #include <pybind11/pybind11.h>
 #include <torch/extension.h>
+#include <cstdlib>
 
 #include "rela/batch_runner.h"
 #include "rela/context.h"
@@ -95,7 +96,7 @@ PYBIND11_MODULE(rela, m) {
             replay.prefetch_,
             replay.capacity_,
             replay.numAdd(),
-            replay.numAct(),
+            static_cast<unsigned long long>(replay.numAct()), // Cast to correct type
             storage_contents  // Serialize collected transitions
 //            replay.rng_.state()  // Save the RNG state (if needed later)
         );
@@ -106,6 +107,7 @@ PYBIND11_MODULE(rela, m) {
             throw std::runtime_error("Invalid state!");
         }
 
+        std::cout<< "hello 109 \n" ;
         // Create a new instance of Replay using move semantics
         auto replay = std::make_unique<Replay>(
             t[1].cast<int>(),  // capacity
@@ -114,8 +116,13 @@ PYBIND11_MODULE(rela, m) {
         );
 
         // Restore the internal states
+
+        std::cout<< "hello 118 " << t[2].cast<int>() ;
         replay->numAdd_ = t[2].cast<int>();
-        replay->numAct_ = t[3].cast<unsigned long long>();
+        int num = static_cast<int>(t[3].cast<unsigned long long>());
+        std::cout << "\n num Act unsigned" << num;
+        replay->numAct_ = num;
+        std::cout << "\n hello 124";
 
         // Repopulate the storage by iterating over the deserialized transitions
         std::vector<RNNTransition> storage_contents = t[4].cast<std::vector<RNNTransition>>();

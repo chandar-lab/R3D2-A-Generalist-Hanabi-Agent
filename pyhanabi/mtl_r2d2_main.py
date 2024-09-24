@@ -192,8 +192,16 @@ def train(args):
         # Construct the new path
         replay_buffer_path = f'{head}/{filename_buffer}'
         print('replay_buffer_path', replay_buffer_path)
-
-        replay_buffer = torch.load(replay_buffer_path)
+        try:
+            replay_buffer = torch.load(replay_buffer_path)
+            args.burn_in_frames = 0
+        except FileNotFoundError:
+            args.burn_in_frames = 1000
+            replay_buffer = rela.RNNReplay(  # type: ignore
+            args.replay_buffer_size,
+            args.seed,
+            args.prefetch,
+        )
 
         print("***************done***************")
     else:

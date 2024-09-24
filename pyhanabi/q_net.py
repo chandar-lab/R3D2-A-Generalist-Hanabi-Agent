@@ -6,8 +6,6 @@ from typing import Tuple, Dict
 import numpy as np
 from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
 import copy
-from peft import LoraConfig
-from peft import get_peft_model
 from functools import partial
 
 
