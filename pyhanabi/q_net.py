@@ -6,16 +6,16 @@ from typing import Tuple, Dict
 import numpy as np
 from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
 import copy
-from peft import LoraConfig
-from peft import get_peft_model
+# from peft import LoraConfig
+# from peft import get_peft_model
 from functools import partial
 
 
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
-    assert a.size() == legal_move.size()
-    assert legal_move.dim() == 3  # seq, batch, dim
-    legal_a = a * legal_move
+    # assert a.size() == legal_move.size()
+    # assert legal_move.dim() == 3  # seq, batch, dim
+    legal_a = a * legal_move[:, :, :a.shape[-1]]
     # NOTE: this may cause instability
     # avg_legal_a = legal_a.sum(2, keepdim=True) / legal_move.sum(2, keepdim=True).clamp(min=0.1)
     # q = v + legal_a - avg_legal_a
@@ -99,7 +99,7 @@ class LSTMNet(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-        # print(priv_s.shape)
+
         priv_s = priv_s.unsqueeze(0)
         x = self.net(priv_s)
         o, (h, c) = self.lstm(x, (hid["h0"], hid["c0"]))
@@ -477,15 +477,20 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.in_dim = in_dim
         self.device = device
         self.hid_dim = hid_dim
+        print(out_dim)
         self.out_dim = out_dim
+        print(self.out_dim)
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
         # self.path = f'action_tokens/{num_of_player}p_action_ids.json'
         #
         # self.act_tok = self.load_json(self.path)
-        path = f'action_tokens/5p_action_ids.json'
-        self.act_toks = self.load_json(path)
+        if self.out_dim == 1:
+            path = f'action_tokens/5p_action_ids.json'
+            self.act_toks = self.load_json(path)
+        else:
+            self.act_toks = torch.zeros(1)
 
         self.lora_dim = lora_dim
         self.state_lstm = nn.LSTM(
@@ -606,7 +611,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         priv_s: torch.Tensor,
         publ_s: torch.Tensor,
         hid: Dict[str, torch.Tensor],
-        legal_move: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
         # legal_move = torch.zeros((1, 21))
@@ -635,7 +639,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         legal_move: torch.Tensor,
         action: torch.Tensor,
         hid: Dict[str, torch.Tensor],
-        update_text_encoder:bool
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert (
             priv_s.dim() == 3 or priv_s.dim() == 2
@@ -650,11 +653,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
         # with torch.no_grad():
         # print(update_text_encoder)
-        if update_text_encoder:
-            out = self.call_transformer(priv_s)
-        else:
-            with torch.no_grad():
-                out = self.call_transformer(priv_s)
+
+        out = self.call_transformer(priv_s)
         x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
         hid = self.get_h0(x.shape[-2])
         if len(hid) == 0:
@@ -666,10 +666,11 @@ class TextLSTMNet(torch.jit.ScriptModule):
             o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
             o_action = o_action.unsqueeze(0)
             o_action = o_action * o.unsqueeze(2)
+            a = self.fc_a(o_action).view(legal_move.size())
         else:
             o_action = o
+            a = self.fc_a(o_action).view(legal_move.shape[0], legal_move.shape[1], self.out_dim)
 
-        a = self.fc_a(o_action).view(legal_move.size())
         v = self.fc_v(o).view(legal_move.shape[0], legal_move.shape[1], 1)
         q = duel(v, a, legal_move)
 
@@ -677,8 +678,8 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # action: [seq_len, batch]
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
 
-        assert q.size() == legal_move.size()
-        legal_q = (1 + q - q.min()) * legal_move
+        # assert q.size() == legal_move.size()
+        legal_q = (1 + q - q.min()) * legal_move[:, :, :q.shape[-1]]
         # greedy_action: [seq_len, batch]
         greedy_action = legal_q.argmax(2).detach()
 

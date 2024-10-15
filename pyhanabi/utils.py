@@ -189,25 +189,44 @@ def load_agent(weight_file, overwrite):
         load_weight(agent.policy_net, weight_file, overwrite["device"])
         # for legacy model
     else:
-        dqn_cfg = {
-            "vdn": False,
-            "multi_step": cfg["multi_step"],
-            "gamma": cfg["gamma"],
-            "device": overwrite["device"],
-            "net": cfg.get("net", "publ-lstm"),
-            "in_dim": game.feature_size(False),
-            "hid_dim": cfg["rnn_hid_dim"],
-            "out_dim": game.num_action(),
-            "num_lstm_layer": cfg["num_lstm_layer"],
-            "off_belief": False, #cfg["off_belief"],
-            'lm_weights': cfg.get("lm_weights", None),
-            'num_of_player': cfg["num_player"],
-            'num_of_additional_layer': cfg["num_of_additional_layer"],
-            'lora_dim': cfg["lora_dim"],
-        }
-        agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
-        load_weight(agent.online_net, weight_file, overwrite["device"])
-        agent.sync_target_with_online()
+        if cfg.get("net", "") == "lstm" or cfg.get("net", "") == "publ-lstm" or cfg.get("off_belief", False):
+            dqn_cfg = {
+                "vdn": False,
+                "multi_step": cfg["multi_step"],
+                "gamma": cfg["gamma"],
+                "device": overwrite["device"],
+                "net": cfg.get("net", "publ-lstm"),
+                "in_dim": game.feature_size(False),
+                "hid_dim": cfg["rnn_hid_dim"],
+                "out_dim": game.num_action(),
+                "num_lstm_layer": cfg["num_lstm_layer"],
+                "off_belief": cfg["off_belief"],
+                'num_of_player': cfg["num_player"],
+            }
+            agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
+            load_weight(agent.online_net, weight_file, overwrite["device"])
+            agent.sync_target_with_online()
+        else:
+            dqn_cfg = {
+                "vdn": False,
+                "multi_step": cfg["multi_step"],
+                "gamma": cfg["gamma"],
+                "device": overwrite["device"],
+                "net": cfg.get("net", "drrn-lstm"),
+                "in_dim": game.feature_size(False),
+                "hid_dim": cfg["rnn_hid_dim"],
+                "out_dim": game.num_action(),
+                "num_lstm_layer": cfg["num_lstm_layer"],
+                "off_belief": False, #cfg["off_belief"],
+                'lm_weights': cfg.get("lm_weights", None),
+                'num_of_player': cfg["num_player"],
+                'num_of_additional_layer': cfg["num_of_additional_layer"],
+                'lora_dim': cfg["lora_dim"],
+                'num_lm_layer': cfg.get("num_lm_layer", 2),
+            }
+            agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
+            load_weight(agent.online_net, weight_file, overwrite["device"])
+            agent.sync_target_with_online()
 
     return agent, cfg
 

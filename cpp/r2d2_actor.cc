@@ -296,7 +296,7 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
       hideAction_,
       aux_,
       sad_);
-  input["priv_s"] = torch::tensor(token_ids);
+  input["priv_s_text"] = torch::tensor(token_ids);
 
 
   // add features such as eps and temperature

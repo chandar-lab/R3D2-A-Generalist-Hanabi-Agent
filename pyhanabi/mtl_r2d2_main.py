@@ -163,7 +163,7 @@ def train(args):
         train_device,
         1, # in_dim
         args.rnn_hid_dim,
-        1, # out_dim
+        games[0][0].num_action(),
         args.net,
         args.num_lstm_layer,
         args.lm_weights,
@@ -345,7 +345,7 @@ def train(args):
                 update_text_encoder = False
                 if num_update % args.update_freq_text_enc == 0:
                     update_text_encoder = True
-                loss = agent.loss(batch, args.aux_weight, stat, update_text_encoder)
+                loss = agent.loss(batch, args.aux_weight, stat)
                 loss = loss.mean()
 
             with stopwatch.time("backward"):

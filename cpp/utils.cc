@@ -50,7 +50,7 @@ rela::TensorDict observe(
   assert(!sad);
   rela::TensorDict feat;
   feat = {{"priv_s", torch::tensor(vS)}};
-
+  feat["priv_s_text"] = torch::tensor(vS);
   if (aux == AuxType::Trinary) {
     auto vOwnHand = encoder.EncodeOwnHandTrinary(obs);
     feat["own_hand"] = torch::tensor(vOwnHand);
