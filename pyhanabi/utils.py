@@ -200,7 +200,7 @@ def load_agent(weight_file, overwrite):
                 "hid_dim": cfg["rnn_hid_dim"],
                 "out_dim": game.num_action(),
                 "num_lstm_layer": cfg["num_lstm_layer"],
-                "off_belief": cfg["off_belief"],
+                "off_belief": cfg.get("off_belief", False),
                 'num_of_player': cfg["num_player"],
             }
             agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])

@@ -2,8 +2,8 @@
 #SBATCH --partition=long
 #SBATCH --cpus-per-task=24
 #SBATCH --gres=gpu:rtx8000:2
-#SBATCH --mem=48G
-#SBATCH --time=71:59:00
+#SBATCH --mem=96G
+#SBATCH --time=95:59:00
 #SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/logs/cool_job-%j.out
 
 # Load necessary modules (if any)

@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument("--config", type=str, default=None)
 
     # training setup related
-    parser.add_argument("--save_dir", type=str, default="exps/exp1")
+    parser.add_argument("--save_dir", type=str, default="exps/iql")
     parser.add_argument("--save_per", type=int, default=50)
     parser.add_argument("--load_model", type=str, default="None")
     parser.add_argument("--seed", type=str, default="a")

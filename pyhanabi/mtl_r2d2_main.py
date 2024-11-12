@@ -187,23 +187,24 @@ def train(args):
         optim.load_state_dict(torch.load(args.load_model.replace('epoch','epoch_optim').replace('.pthw','.pth') ,map_location=train_device))
 
         head, tail = args.load_model.rsplit('/', 1)  # head is the directory, tail is the filename
-        # Replace the epoch in the filename and change the extension
-        filename_buffer = f'replay_buffer.pth'
-        # Construct the new path
-        replay_buffer_path = f'{head}/{filename_buffer}'
-        print('replay_buffer_path', replay_buffer_path)
-
-        replay_buffer = torch.load(replay_buffer_path)
+        # # Replace the epoch in the filename and change the extension
+        # filename_buffer = f'replay_buffer.pth'
+        # # Construct the new path
+        # replay_buffer_path = f'{head}/{filename_buffer}'
+        # print('replay_buffer_path', replay_buffer_path)
+        #
+        # replay_buffer = torch.load(replay_buffer_path)
 
         print("***************done***************")
     else:
         online_net = utils.get_agent_online_network(agent, False)
         optim = torch.optim.Adam(online_net.parameters(), lr=args.lr, eps=args.eps)
-        replay_buffer = rela.RNNReplay(  # type: ignore
-            args.replay_buffer_size,
-            args.seed,
-            args.prefetch,
-        )
+
+    replay_buffer = rela.RNNReplay(  # type: ignore
+        args.replay_buffer_size,
+        args.seed,
+        args.prefetch,
+    )
 
     saver = common_utils.TopkSaver(args.save_dir, 5)
 

@@ -24,7 +24,7 @@ max_len: 80
 rnn_hid_dim: 128
 num_player: 2
 do_eval: 0
-save_dir: ~/scratch/llm_hanabi_hive/exps/test_mtl5_1layer/
+save_dir: /tmp/
 wandb: 0
 update_freq_text_enc: 1
 lm_weights: pretrained

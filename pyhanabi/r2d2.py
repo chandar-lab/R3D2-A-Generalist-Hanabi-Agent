@@ -255,19 +255,6 @@ class R2D2Agent(torch.jit.ScriptModule):
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
             priv_s, publ_s, legal_move, action, hid
         )
-        # if "llm_prior" in obs:
-        #     llm_prior = obs["llm_prior"]
-        #     pikl_lambda = obs["pikl_lambda"]
-        #     if self.vdn:
-        #         llm_prior = llm_prior.flatten(1, 2)
-        #         pikl_lambda = pikl_lambda.flatten(1, 2)
-        #
-        #     pikl_lambda = pikl_lambda.unsqueeze(2)
-        #     assert pikl_lambda.dim() == llm_prior.dim()
-        #     assert online_q.size() == llm_prior.size()
-        #     pikl_q = online_q + pikl_lambda * llm_prior
-        #     legal_q = pikl_q - (1 - legal_move) * 1e10
-        #     greedy_a = legal_q.argmax(2).detach()
 
         if self.off_belief:
             target = obs["target"]
