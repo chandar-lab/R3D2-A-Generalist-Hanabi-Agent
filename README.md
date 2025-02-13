@@ -1,14 +1,17 @@
-# Language Instructed Reinforcement Learning for Human-AI Coordination
+# Goal
+Traditional MARL systems struggle to adapt to new settings or unfamiliar collaborators, as seen in the Hanabi benchmark. This paper introduces a generalist Hanabi agent that uses language-based reformulation and a distributed MARL algorithm to enable adaptability. The proposed agent plays across all settings, transfers strategies, and collaborates with diverse agents, overcoming existing limitations.
 
-This is the code for [Language Instructed Reinforcement Learning for Human-AI Coordination](https://arxiv.org/abs/2304.07297) (ICML 2023).
 
+![R3D2 Architecture](r3d2_archi.png)
+
+This code base is based on  [Language Instructed Reinforcement Learning for Human-AI Coordination (ICML 2023)](https://github.com/hengyuan-hu/instruct-rl).
 The code has been tested with PyTorch 2.0.1
 
 ## Get Started
 
 Clone the repo with `--recursive` to include submodules
 ```bash
-git clone --recursive git@github.com:hengyuan-hu/instruct-rl.git
+git clone --recursive git@github.com:user_name/generalist_hanabi_agent.git
 ```
 
 Dependencies
@@ -17,97 +20,168 @@ pip install tdqm scipy matplotlib 'transformers[torch]'
 pip install openai
 ```
 
-## The Say-Select Experiments
+## Table of Contents
 
-```bash
-cd say-select
+- [Environment Setup](#environment-setup)
+- [Dependencies](#dependencies)
+- [GPU Configuration](#gpu-configuration)
+- [Building Tokenizers](#building-tokenizers)
+- [Additional Information](#additional-information)
+- [Training Scripts R2D2, R3D2](#batch-job-submission-guide)
+- [Evaluation Scripts Job](evaluation-job-scrips)
 
-# train instruct-rl policies using default hyper-parameters
-python train.py
 
-# train vanilla rl policies
-python train.py --lmd 0
-```
+---
 
-## The Hanabi Experiments
 
-### Prepare
+## Hanabi Learning Environment Setup
 
-First build the C++ part of the repo if you want to train/evaluate models
-```bash
-# under the root folder of the repo, compile
-make
+This repository contains the setup instructions for the Hanabi learning environment and related dependencies.
 
-# Run this line before running any training code to prevent tensor operations
-# from using single thread as our code uses multi-threading internally to run
-# large number of environments in parallel
-# Add it to your bashrc for convenience
-export OMP_NUM_THREADS=1
-```
 
-Download pretrained OBL models and fully trained models used in ICML paper.
-```bash
-# under instruct-rl root directory
-pip install gdown
-gdown https://drive.google.com/uc\?id\=1Kko7L9zdS6ywCUs6VIaeCY32kGU1RZrz
-unzip models.zip
-```
+## Environment Setup
 
-Or directly download from Google Drive: `https://drive.google.com/file/d/1Kko7L9zdS6ywCUs6VIaeCY32kGU1RZrz/view?usp=drive_link`
+1. **Create a Conda environment**:
+   ```bash
+   conda create --name hanabi_instruct python=3.9
+   ```
+2. **Activate the environment**:
+   ```bash
+   conda activate hanabi_instruct
+   ```
 
-### Run the code
+## Dependencies
 
-Then go to the `pyhanabi` folder to run the code.
+1. **Install PyTorch (CUDA 11.8)**:
+   ```bash
+   pip install torch==2.0.1 --index-url https://download.pytorch.org/whl/cu118
+   ```
+
+2. **Install Transformers library**:
+   ```bash
+   pip install transformers==4.31.0
+   ```
+
+3. **Load Python module**:
+   ```bash
+   module load python/3.9
+   ```
+
+4. **Install additional Python packages**:
+   ```bash
+   pip install cmake tabulate cffi psutil
+   pip install tdqm scipy matplotlib wandb
+   ```
+
+## GPU Configuration
+
+1. **Load CUDA module**:
+   ```bash
+   module load cuda/11.8
+   ```
+
+2. **Install Rust for building tokenizers**:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+## Building Tokenizers
+
+1. **Navigate to the `hanabi_lib` directory**:
+   ```bash
+   cd hanabi-learning-environment/hanabi_lib/
+   ```
+
+2. **Clone the `tokenizers-cpp` repository**:
+   ```bash
+   git clone --recursive git@github.com:mlc-ai/tokenizers-cpp.git
+   ```
+
+## Build
+   ```bash
+   make
+   ```
+---
+
+## Additional Information
+
+- Ensure that all required modules are properly loaded in your environment.
+- The setup assumes access to a GPU with CUDA 11.8 support.
+- Use `wandb` for experiment tracking and logging during model training.
+- If issues arise during the setup, check for compatibility between package versions and your system configuration.
+
+Feel free to contribute or report issues!
+
+
+## Training Scripts R2D2, R3D2
+
+This guide provides batch job submission commands to execute three different scripts (`submit_job_iql.sh`, `submit_jobs_other_player.sh`, and `launch_r3d2.sh`) for multiple models and players.
+
+## Commands
 ```bash
 cd pyhanabi
 ```
 
-Generate the language observations and language descriptions of the possible actions.
+### Submitting Jobs for `submit_job_iql.sh`
+The following command submits jobs for each model (`a`, `b`, `c`, `d`, `e`) and each player count (`2`, `3`, `4`, `5`):
 ```bash
-python gen_all_langs.py
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/submit_job_iql.sh $m $p; 
+    done; 
+done;
 ```
 
-The `openai_api.py` file contains code to evaluate prompts using `openai-api`. Please check
-that file for detailed instructions. That file is deisgned to run interactively using VSCode's
-[Python interactive window](https://code.visualstudio.com/docs/python/jupyter-support-py).
-Pre-generated prior policies used in the paper are stored in `pyhanabi/openai`.
-
-To train the model, run
+### Submitting Jobs for `submit_jobs_other_player.sh`
+The following command submits jobs for `submit_jobs_other_player.sh` with the same models and player counts:
 ```bash
-export OMP_NUM_THREADS=1  # if you have not put this into bashrc
-# ppo, the config uses color-instruction
-python ppo_main.py --config configs/ppo.yaml
-
-# iql,  the config uses color-instruction
-python r2d2_main.py --config configs/iql.yaml
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/submit_jobs_other_player.sh $m $p; 
+    done; 
+done;
 ```
 
-### Additional resources
-
-To evaluate a trained model
+### Submitting Jobs for Single-task R3D2 `launch_r3d2.sh`
+The following command submits jobs for `launch_r3d2.sh` with the same models and player counts:
 ```bash
-# inside pyhanabi folder
-python tools/eval_model.py --weight1 ../models/icml/iql_rank/iql1_pkr_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/launch_r3d2.sh $m $p; 
+    done; 
+done;
 ```
 
-To examine the condtional action matrix
+###  Submitting Jobs for Multi-task R3D2 `launch_r3d2.sh` (Player 6)
+The following command submits jobs for `launch_r3d2.sh` for `Player 6`, representing multi-task R3D2, with the same models:
+
 ```bash
-python tools/action_matrix.py --model ../models/icml/iql_color/iql1_pkc_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 6; do 
+        sbatch scripts/launch_r3d2.sh $m $p; 
+    done; 
+done;
 ```
 
-To train a belief model
+## Explanation
+
+- **Seed (`m`)**: The scripts will iterate over the models `a`, `b`, `c`, `d`, and `e`.
+- **Player Setting (`p`)**: Jobs will be submitted for player counts of `2`, `3`, `4`, and `5`.
+- **Scripts**: The three scripts handle different types of job submissions (`IQL`, `other players`, and `R3D2`).
+
+
+
+## Evaluation Scripts Job
+
 ```bash
-python train_belief.py --policy ../models/icml/iql_color/iql1_pkc_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+scripts/launch_2p_eval_diff_setting_all.sh
+scripts/launch_3p_eval_diff_setting_all.sh
+scripts/launch_4p_eval_diff_setting_all.sh
+scripts/launch_5p_eval_diff_setting_all.sh
+
+scripts/launch_cross_play.sh
+
+
 ```
 
-To run sparta for the fast adaptation experiments in the appendix
-```bash
-python sparta.py
-```
-
-To host a bot online so that people can play with it.
-```bash
-cd live_bot
-pip install websocket-client requests
-python main.py --name Bot-Color --login_name Bot-Something --password agoodpassword
-```
