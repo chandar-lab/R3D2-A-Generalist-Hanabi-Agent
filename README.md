@@ -1,5 +1,18 @@
-# Goal
-Traditional MARL systems struggle to adapt to new settings or unfamiliar collaborators, as seen in the Hanabi benchmark. This paper introduces a generalist Hanabi agent that uses language-based reformulation and a distributed MARL algorithm to enable adaptability. The proposed agent plays across all settings, transfers strategies, and collaborates with diverse agents, overcoming existing limitations.
+# A Generalist Hanabi Agent - Recurrent Replay Relevance Distributed DQN (R3D2)
+
+
+## Overview
+Recurrent Replay Relevance Distributed DQN (R3D2) is a generalist multi-agent reinforcement learning (MARL) agent designed to play Hanabi across all game settings while adapting to unfamiliar collaborators. Unlike traditional MARL agents that struggle with transferability and cooperation beyond their training setting, R3D2 utilizes language-based reformulation and a distributed learning approach to handle dynamic observation and action spaces. This allows it to generalize across different game configurations and effectively collaborate with diverse algorithmic agents.
+
+## Key Features
+- **Generalized MARL agent**: Play Hanabi across different player settings (2-to-5 players) without changing architecture or retraining from scratch.
+
+- **Adaptive cooperation**: Capable of collaborating with unfamiliar partners, overcoming limitations of traditional MARL systems.
+
+- **Language-based task reformulation**: Utilizes text representations to enhance transfer learning and generalization.
+
+- **Distributed Learning Framework**: Employs a scalable MARL algorithm to handle dynamic observations and actions effectively.
+
 
 
 ![R3D2 Architecture](r3d2_archi.png)
@@ -12,12 +25,6 @@ The code has been tested with PyTorch 2.0.1
 Clone the repo with `--recursive` to include submodules
 ```bash
 git clone --recursive git@github.com:user_name/generalist_hanabi_agent.git
-```
-
-Dependencies
-```bash
-pip install tdqm scipy matplotlib 'transformers[torch]'
-pip install openai
 ```
 
 ## Table of Contents
@@ -184,4 +191,8 @@ scripts/launch_cross_play.sh
 
 
 ```
+
+## Additional Comments:
+
+`HanabiState::ToText()` converts the game's current state into a human-readable format, providing details on tokens, fireworks, and player hands. [Reference](https://github.com/chandar-lab/Zeroshot_hanabi_instructrl/blob/312366b3038159c8a68476cf44afd0ae609ff26c/hanabi-learning-environment/hanabi_lib/hanabi_state.cc#L393)
 
