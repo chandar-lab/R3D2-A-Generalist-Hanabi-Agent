@@ -14,7 +14,7 @@ import glob
 import os
 import wandb
 import json
-# os.environ['WANDB_API_KEY'] = 'a82fded1d166d8370d47db7e3c6e1b9b4185fa73'
+# os.environ['WANDB_API_KEY'] = 
 lib_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(lib_path)
 from eval import evaluate_saved_model
@@ -69,39 +69,4 @@ non_zero_scores = [s for s in scores if s > 0]
 print(f"non zero mean: {np.mean(non_zero_scores):.3f}")
 wandb.log({f"{args.num_player}/epoch": epoch_number, f"{args.num_player}/score": np.mean(scores), f"{args.num_player}/perfect": perfect})
 
-# print(f"bomb out rate: {100 * (1 - len(non_zero_scores) / len(scores)):.2f}%")
-# # print(scores)
-# # 4 numbers represent: [none, color, rank, both] respectively
-# card_stats = []
-# for g in actors:
-#     card_stats.append(g.get_played_card_info())
-# card_stats = np.array(card_stats).sum(0)
-# print("knowledge of cards played:")
-# total = sum(card_stats)
-
-# for i, ck in enumerate(["none", "color", "rank", "both"]):
-#     print(f"{ck}: {card_stats[i]}, {int(100 * card_stats[i] / total)}")
-
-
-
-
-
-# new_data = {'num_player_'+str(args.num_player)+'_'.join(weight_files)+ 'num_alternative_player_' + str(args.num_alternative_player): [np.mean(scores), np.mean(non_zero_scores)],}
-# print(new_data)
-# file_name = f'/home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec_text/pyhanabi/eval_transfer_results_{args.num_player}p_all_comb.json'
-# # Check if the file exists
-# if os.path.exists(file_name):
-#     # Load the existing file
-#     with open(file_name, 'r') as json_file:
-#         data = json.load(json_file)
-#
-#     # Update the existing data with the new data
-#     data.update(new_data)
-# else:
-#     data = new_data
-#
-# # Save the updated data back to the file
-# with open(file_name, 'w') as json_file:
-#     json.dump(data, json_file)
-#     print(f"Updated data saved to {file_name}")
 wandb.finish()

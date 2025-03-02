@@ -15,7 +15,7 @@ from functools import partial
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
     # assert a.size() == legal_move.size()
     # assert legal_move.dim() == 3  # seq, batch, dim
-    legal_a = a * legal_move[:, :, :a.shape[-1]]
+    legal_a = a * legal_move[:, :, :a.shape[-1]] # a.shape[-1] to determine the number of valid moves for each player. It masking out invalid moves, ensuring only the valid moves for each player are selected.
     # NOTE: this may cause instability
     # avg_legal_a = legal_a.sum(2, keepdim=True) / legal_move.sum(2, keepdim=True).clamp(min=0.1)
     # q = v + legal_a - avg_legal_a

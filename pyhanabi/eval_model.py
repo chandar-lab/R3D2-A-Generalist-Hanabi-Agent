@@ -13,7 +13,7 @@ import common_utils
 import glob
 import os
 import wandb
-# os.environ['WANDB_API_KEY'] = 'a82fded1d166d8370d47db7e3c6e1b9b4185fa73'
+# os.environ['WANDB_API_KEY'] =
 lib_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(lib_path)
 from eval import evaluate_saved_model
@@ -52,21 +52,6 @@ else:
         weight_files = [args.weight1 for _ in range(args.num_player)]
     else:
         weight_files = [args.weight1, args.weight2, args.weight3]
-
-# overwrites = []
-# for ovwt in [args.overwrite1, args.overwrite2]:
-#     if ovwt is None:
-#         overwrites.append({})
-#     else:
-#         overwrite = {}
-#         for kv in args.overwrite.split(","):
-#             k, v = kv.split("=")
-#             try:
-#                 v = float(v)
-#             except:
-#                 pass
-#             overwrite[k] = v
-#         overwrites.append(overwrite)
 
 
 _, _, perfect, scores, actors, _ = evaluate_saved_model(

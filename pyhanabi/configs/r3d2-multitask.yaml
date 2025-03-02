@@ -17,7 +17,7 @@ pikl_beta: 1
 pikl_lambda: 0.15
 shuffle_color: 0
 target_data_ratio: 2
-load_model: #/home/mila/n/nekoeiha/MILA/Zeroshot_hanabi_instructrl_mtl_5/pyhanabi/~/scratch/llm_hanabi_hive/exps/test_mtl5_loaded_no_eval/loaded_epoch120.pthw_np_2_lora_dim_0_text_enc_pretrained_s_48950461/epoch120.pthw_np_2_lora_dim_0_text_enc_pretrained_s_48950461/epoch100.pthw
+load_model:
 save_per: 20
 batchsize: 64
 max_len: 80

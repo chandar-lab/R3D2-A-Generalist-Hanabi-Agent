@@ -14,17 +14,17 @@ Recurrent Replay Relevance Distributed DQN (R3D2) is a generalist multi-agent re
 - **Distributed Learning Framework**: Employs a scalable MARL algorithm to handle dynamic observations and actions effectively.
 
 
+## R3D2 Architecture:
+![R3D2 Architecture](images/r3d2_architecture.png)
 
-![R3D2 Architecture](r3d2_archi.png)
-
-This code base is based on  [Language Instructed Reinforcement Learning for Human-AI Coordination (ICML 2023)](https://github.com/hengyuan-hu/instruct-rl).
 The code has been tested with PyTorch 2.0.1
+
 
 ## Get Started
 
 Clone the repo with `--recursive` to include submodules
 ```bash
-git clone --recursive git@github.com:user_name/generalist_hanabi_agent.git
+git clone --recursive git@github.com:chandar-lab/R3D2-A-Generalist-Hanabi-Agent.git
 ```
 
 ## Table of Contents
@@ -196,3 +196,6 @@ scripts/launch_cross_play.sh
 
 `HanabiState::ToText()` converts the game's current state into a human-readable format, providing details on tokens, fireworks, and player hands. [Reference](https://github.com/chandar-lab/Zeroshot_hanabi_instructrl/blob/312366b3038159c8a68476cf44afd0ae609ff26c/hanabi-learning-environment/hanabi_lib/hanabi_state.cc#L393)
 
+
+
+This code base is based on  [Language Instructed Reinforcement Learning for Human-AI Coordination (ICML 2023)](https://github.com/hengyuan-hu/instruct-rl).

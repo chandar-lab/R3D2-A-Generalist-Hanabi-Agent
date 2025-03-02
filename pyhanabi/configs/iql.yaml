@@ -22,5 +22,5 @@ batchsize: 96
 max_len: 80
 num_player: 2
 do_eval: 1
-save_dir: /home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may24/Zeroshot_hanabi_instructrl/llm_hanabi_hive/baseline_exps/
+save_dir: ~/scratch/llm_hanabi_hive/baseline_exps/
 wandb: 0

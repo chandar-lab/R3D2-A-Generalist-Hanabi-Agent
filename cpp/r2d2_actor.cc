@@ -3,13 +3,14 @@
 #include <iomanip>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <tokenizers_cpp.h>
 using tokenizers::Tokenizer;
 
 
-std::string global_path = "/home/mila/a/arjun.vaithilingam-sudhakar/scratch/hanabi_may_15/Zeroshot_hanabi_instructrl/hanabi-learning-environment/hanabi_lib/dist/tokenizer.json";
+std::string global_path = (std::filesystem::current_path() / "hanabi-learning-environment/hanabi_lib/dist/tokenizer.json").string();
 std::string global_data;
 int flag = 0;
 std::unique_ptr<Tokenizer> global_tok;
@@ -98,8 +99,6 @@ std::tuple<std::vector<hle::HanabiCardValue>, bool> filterSample(
 }
 
 std::tuple<bool, bool> analyzeCardBelief(const std::vector<float>& b) {
-//  std::cout <<"b.size()" << b.size()<<"\n";
-//  assert(b.size() == 25);
   std::set<int> colors;
   std::set<int> ranks;
   for (int c = 0; c < 5; ++c) {
@@ -448,11 +447,7 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::decideMove(const HanabiEnv& env) {
   auto curPlayer = env.getCurrentPlayer();
   std::unique_ptr<hle::HanabiMove> move;
 
-//  if (curPlayer != playerIdx_) {
-//    std::cout <<"curPlayer" << curPlayer<<"\n";
-//    std::cout <<"playerIdx_" << playerIdx_<<"\n";
-//    assert(action == env.noOpUid());
-//  } else {
+
   auto& state = env.getHleState();
   move = std::make_unique<hle::HanabiMove>(state.ParentGame()->GetMove(action));
   if (shuffleColor_ && move->MoveType() == hle::HanabiMove::Type::kRevealColor) {
@@ -477,8 +472,6 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::decideMove(const HanabiEnv& env) {
       }
     }
   }
-//  }
-
   if (offBelief_) {
     const auto& hand = fictState_->Hands()[playerIdx_];
     bool success = true;

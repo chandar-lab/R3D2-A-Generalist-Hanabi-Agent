@@ -116,10 +116,6 @@ def evaluate_saved_model(
         agent, cfg = utils.load_agent(weight_file, {"device": device})
         agents.append(agent)
 
-        # if overwrite is not None and cfg[""]:
-        # if len(overwrites[i]):
-        #     print(f"updating cfg for {weight_file}")
-        #     cfg.update(overwrites[i])
 
         if "llm_prior" in cfg and isinstance(agent, r2d2.R2D2Agent):
             if cfg["llm_prior"] is not None:

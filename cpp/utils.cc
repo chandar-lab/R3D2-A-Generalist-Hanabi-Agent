@@ -68,7 +68,6 @@ rela::TensorDict observe(
         encoder.EncodeARV0Belief(obs, std::vector<int>(), shuffleColor, colorPermute);
     feat["priv_ar_v0"] = torch::tensor(privARV0);
   }
-//  std::cout << "before util.cc legal moves";
   // legal moves
   const auto& legalMove = state.LegalMoves(playerIdx);
   std::vector<float> vLegalMove(50 + 1); // game.MaxMoves()
