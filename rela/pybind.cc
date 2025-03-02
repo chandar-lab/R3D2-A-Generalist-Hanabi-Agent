@@ -108,21 +108,6 @@ PYBIND11_MODULE(rela, m) {
 ));
 
 
-
-
-//   py::class_<TensorDictReplay, std::shared_ptr<TensorDictReplay>>(m, "TensorDictReplay")
-//       .def(py::init<
-//            int,    // capacity,
-//            int,    // seed,
-//            float,  // alpha, priority exponent
-//            float,  // beta, importance sampling exponent
-//            int>())
-//       .def("size", &TensorDictReplay::size)
-//       .def("num_add", &TensorDictReplay::numAdd)
-//       .def("sample", &TensorDictReplay::sample)
-//       .def("update_priority", &TensorDictReplay::updatePriority)
-//       .def("get", &TensorDictReplay::get);
-
   py::class_<ThreadLoop, std::shared_ptr<ThreadLoop>>(m, "ThreadLoop");
 
   py::class_<Context>(m, "Context")

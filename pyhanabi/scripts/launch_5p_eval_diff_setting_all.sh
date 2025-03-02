@@ -39,7 +39,6 @@ for ((i=0; i<${#players[@]}; i++)); do
                   r2_4_count=0
 
                   # Check each alternative for R3-2* and R3-3*
-                  # Check each alternative for R3-2* and R3-3*
                   [[ ${alternatives_2[$j]} == *"r3d2/2/"* ]] && ((r3_2_count++))
                   [[ ${alternatives_2[$j]} == *"r3d2/3/"* ]] && ((r3_3_count++))
                   [[ ${alternatives_2[$j]} == *"r3d2/4/"* ]] && ((r3_4_count++))

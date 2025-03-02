@@ -56,7 +56,7 @@ do
     # Construct the command to run the Python script
     if [ -z "$LATEST_CHECKPOINT" ]; then
         # No checkpoint found, start from the beginning
-        python mtl_r2d2_main.py --config configs/iql_text.yaml --num_player $PLAYER --seed $SEED --num_thread $NUM_THREADS  --start_epoch $START_EPOCH --end_epoch $END_EPOCH --save_dir $CHECKPOINT_PATH --num_lm_layer 1 --update_freq_text_enc $UPDATE_FREQ # --lm_weights "random"
+        python r3d2_main.py --config configs/iql_text.yaml --num_player $PLAYER --seed $SEED --num_thread $NUM_THREADS  --start_epoch $START_EPOCH --end_epoch $END_EPOCH --save_dir $CHECKPOINT_PATH --num_lm_layer 1 --update_freq_text_enc $UPDATE_FREQ # --lm_weights "random"
         kill -9 %
         kill -9 %
         kill -9 %
@@ -74,7 +74,7 @@ do
         kill -9 %
         kill -9 %
         kill -9 %
-        python mtl_r2d2_main.py --config configs/iql_text.yaml --num_player $PLAYER --seed $SEED --num_thread $NUM_THREADS --start_epoch $START_EPOCH --end_epoch $END_EPOCH --load_model "$LATEST_CHECKPOINT" --save_dir $CHECKPOINT_PATH  --num_lm_layer 1  --update_freq_text_enc $UPDATE_FREQ #  --lm_weights "random"
+        python r3d2_main.py --config configs/iql_text.yaml --num_player $PLAYER --seed $SEED --num_thread $NUM_THREADS --start_epoch $START_EPOCH --end_epoch $END_EPOCH --load_model "$LATEST_CHECKPOINT" --save_dir $CHECKPOINT_PATH  --num_lm_layer 1  --update_freq_text_enc $UPDATE_FREQ #  --lm_weights "random"
         kill -9 %
         kill -9 %
         kill -9 %

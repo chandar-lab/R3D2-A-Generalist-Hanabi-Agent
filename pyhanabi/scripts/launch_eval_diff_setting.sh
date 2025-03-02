@@ -18,7 +18,6 @@ cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec
 cd $SLURM_TMPDIR/pyhanabi/
 
 players=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/a/epoch2000.pthw')
-#alternatives=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/b/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/b/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/b/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/b/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/b/epoch2020.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/3/20/a/epoch2020.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2020.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/a/epoch2020.pthw'  '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/a/epoch2900.pthw'  '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw')
 alternatives=('/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/a/epoch1480.pthw'  )
 
 pair_list=()
@@ -31,7 +30,6 @@ for p1 in "${players[@]}"; do
             p2=${alternatives[$index]}
         fi
         pair_list+=("$p1,$p2,$counter")
-	# echo "p1: $p1, p2: $p2"  # Print p1 and p2
 
     done
     ((counter++))

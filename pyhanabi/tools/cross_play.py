@@ -45,17 +45,9 @@ def cross_play(comb_string, num_game, seed):
     comb_string = comb_string.replace(',','')
     comb_string = comb_string.replace(']','')
     paths = re.findall(r'/[^"]+', comb_string)
-    print('paths:', paths)
     comb = paths[0].split('+')
-    print('line comb 46', comb)
-    # combs = list(itertools.combinations_with_replacement(models, num_player))
-    # print(combs)
-    # print(len(combs))
-
-    # folder_name = paths[0].split('+')[0].split('/')[-3]
 
     folder_path = '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/zero_shot_eval_2p'
-    # folder_path = os.path.join(base_folder_path, folder_name)
 
     os.makedirs(folder_path, exist_ok=True)
 
@@ -83,16 +75,6 @@ def cross_play(comb_string, num_game, seed):
     with open(result_json_path, 'w') as file:
         json.dump(perfs, file, indent=4)
 
-    # perfs[num_model].append(score)
-    #
-    # for num_model, scores in perfs.items():
-    #     print(
-    #         f"#model: {num_model}, #groups {len(scores)}, "
-    #         f"score: {np.mean(scores):.2f} "
-    #         f"+/- {np.std(scores) / np.sqrt(len(scores) - 1):.2f}"
-    #     )
-    # print('perfs', perfs)
-
 def find_pth_files(directory):
     pth_files = []
     for root, dirs, files in os.walk(directory):
@@ -110,16 +92,6 @@ parser.add_argument("--include", default=None, type=str, nargs="+")
 parser.add_argument("--exclude", default=None, type=str, nargs="+")
 
 args = parser.parse_args()
-
-# models = common_utils.get_all_files(args.root, "*.pthw")
-# models = find_pth_files(args.root)
-
-# print(models)
-#
-# if args.include is not None:
-#     models = filter_include(models, args.include)
-# if args.exclude is not None:
-#     models = filter_exclude(models, args.exclude)
 
 pprint.pprint(args.root)
 cross_play(args.root, 1000, 1)

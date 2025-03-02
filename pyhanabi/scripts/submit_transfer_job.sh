@@ -18,4 +18,4 @@ module load libffi
 module load cuda/11.8
 module load OpenSSL/1.1
 
-python r2d2_main.py --config configs/drrn_bert.yaml --load_model $1 --seed $SEED --num_player $PLAYER --wandb $WANDB --num_of_additional_layer $ADDLAYER
+python r2d2_main.py --config configs/r3d2.yaml --load_model $1 --seed $SEED --num_player $PLAYER --wandb $WANDB --num_of_additional_layer $ADDLAYER
