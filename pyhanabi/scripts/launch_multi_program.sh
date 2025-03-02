@@ -4,14 +4,14 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=96G
 #SBATCH --time=95:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 # Constants
 SEED=$1
@@ -19,7 +19,7 @@ PLAYER=$2
 UPDATE_FREQ=$3
 TOTAL_EPOCHS=4000
 EPOCHS_PER_RUN=20
-CHECKPOINT_DIR="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S"
+CHECKPOINT_DIR="${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S"
 
 CHECKPOINT_PATH="${CHECKPOINT_DIR}/${PLAYER}/${EPOCHS_PER_RUN}/${SEED}" #/${UPDATE_FREQ}
 

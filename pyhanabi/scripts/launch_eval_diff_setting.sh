@@ -4,21 +4,30 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=2:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8   # Example: adjust to your environment
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 SEED=$1
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec_text/* $SLURM_TMPDIR
 
-cd $SLURM_TMPDIR/pyhanabi/
+SCRATCH_MATHIEU="/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2"
+SCRATCH_NEKOEIHA="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint"
 
-players=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/a/epoch2000.pthw')
-alternatives=('/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/a/epoch1480.pthw'  )
+players=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/5/20/a/epoch2000.pthw"
+)
+
+alternatives=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/R2D2-text-S/4/20/b/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/R2D2-text-S/5/20/a/epoch1480.pthw"
+)
 
 pair_list=()
 counter=2  # Initialize counter from 2

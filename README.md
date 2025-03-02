@@ -50,11 +50,11 @@ This repository contains the setup instructions for the Hanabi learning environm
 
 1. **Create a Conda environment**:
    ```bash
-   conda create --name hanabi_instruct python=3.9
+   conda create --name r3d3_hanabi python=3.9
    ```
 2. **Activate the environment**:
    ```bash
-   conda activate hanabi_instruct
+   conda activate r3d3_hanabi
    ```
 
 ## Dependencies

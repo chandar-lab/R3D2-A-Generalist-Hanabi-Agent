@@ -6,15 +6,12 @@ from typing import Tuple, Dict
 import numpy as np
 from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
 import copy
-# from peft import LoraConfig
-# from peft import get_peft_model
 from functools import partial
 
 
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
-    # assert a.size() == legal_move.size()
-    # assert legal_move.dim() == 3  # seq, batch, dim
+
     legal_a = a * legal_move[:, :, :a.shape[-1]] # a.shape[-1] to determine the number of valid moves for each player. It masking out invalid moves, ensuring only the valid moves for each player are selected.
     # NOTE: this may cause instability
     # avg_legal_a = legal_a.sum(2, keepdim=True) / legal_move.sum(2, keepdim=True).clamp(min=0.1)
@@ -178,19 +175,13 @@ class MultiHeadAttention(torch.jit.ScriptModule):
         seq_len, batch, _ = x.size()
         qkv = self.qkv_proj(x).view(seq_len, batch, 3, self.num_head, self.d_head)
         q, k, v = qkv.permute((1, 2, 3, 0, 4)).unbind(1)
-        # q, k, v = einops.rearrange(
-        #     qkv, "t b (k h d) -> b k h t d", k=3, h=self.num_head
-        # ).unbind(1)
-        # attn_v = torch.nn.functional.scaled_dot_product_attention(
-        #     q, k, v, dropout_p=0.0, is_causal=False
-        # )
+
         score = torch.einsum("bhtd,bhsd->bhts", q, k) / self.scale
         # prod = (q * k).sum(3) / self.scale  # prod: [batch, num_head, seq]
         attn = torch.nn.functional.softmax(score, -1)
         attn_v = torch.einsum("bhts,bhsd->bhtd", attn, v)
         attn_v = attn_v.permute((2, 0, 1, 3)).flatten(start_dim=2)
 
-        # attn_v = einops.rearrange(attn_v, "b h t d -> t b (h d)")
         return self.out_proj(attn_v)
 
 
@@ -253,9 +244,6 @@ class MHANet(torch.jit.ScriptModule):
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
 
-        # # for aux task
-        # self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
-
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_lstm_layer, batchsize, 1)
@@ -305,8 +293,7 @@ class MHANet(torch.jit.ScriptModule):
         q = self.fc_v(o) + self.fc_a(o)  # q: [seq, batch, num_head, num_action]
         q = (q * q_weight.unsqueeze(3)).sum(2)
 
-        # q: [seq_len, batch, num_action]
-        # action: [seq_len, batch]
+
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
 
         assert q.size() == legal_move.size()
@@ -321,8 +308,7 @@ class MHANet(torch.jit.ScriptModule):
             q = q.squeeze(0)
         return qa, greedy_action, q, o
 
-    # def pred_loss_1st(self, lstm_o, target, hand_slot_mask, seq_len):
-    #     return cross_entropy(self.pred_1st, lstm_o, target, hand_slot_mask, seq_len)
+
 
 
 class PublicLSTMNet(torch.jit.ScriptModule):
@@ -483,9 +469,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
-        # self.path = f'action_tokens/{num_of_player}p_action_ids.json'
-        #
-        # self.act_tok = self.load_json(self.path)
+
         if self.out_dim == 1:
             path = f'action_tokens/5p_action_ids.json'
             self.act_toks = self.load_json(path)
@@ -500,12 +484,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         ).to(device)
         self.state_lstm.flatten_parameters()
         self.num_lm_layer = num_lm_layer
-        # self.mlp = nn.Sequential(
-        #     nn.Linear(128, 256),
-        #     nn.ReLU(),
-        #     nn.Linear(256, 128)
-        # )
-        # self.mlp = self.create_mlp(128,256,128,self.num_lm_layer)
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
         # for aux task
@@ -613,9 +591,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         assert priv_s.dim() == 2
-        # legal_move = torch.zeros((1, 21))
-        # num_players = int((legal_move.size()[1] - 1) / 10)
-        # print('num_players', num_players)
+
         with torch.no_grad():
             x = self.call_transformer(priv_s)
             x = x['last_hidden_state'].mean(dim=1).unsqueeze(0)
@@ -643,16 +619,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
         assert (
             priv_s.dim() == 3 or priv_s.dim() == 2
         ), "dim = 3/2, [seq_len(optional), batch, dim]"
-        # print('qnet 649', legal_move.size())
-        # num_players = int((legal_move.size()[2] - 1) / 10)
+
 
         one_step = False
         priv_s = priv_s.to(self.device)
         seq_len, num_words, batch = priv_s.size()
         priv_s = priv_s.transpose(1, 2)
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
-        # with torch.no_grad():
-        # print(update_text_encoder)
+
 
         out = self.call_transformer(priv_s)
         x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)

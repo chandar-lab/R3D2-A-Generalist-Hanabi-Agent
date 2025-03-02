@@ -4,19 +4,19 @@
 #SBATCH --gres=gpu:2
 #SBATCH --mem=48G
 #SBATCH --time=1:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 # Constants
 num_player=2
 
-CHECKPOINT_DIR="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/zero_shot_eval_2p"
+CHECKPOINT_DIR="${SCRATCH}/final_hanabi_checkpoint/zero_shot_eval_2p"
 
 pthw_files=$(find "$CHECKPOINT_DIR" -type f -name "*.pthw")
 
@@ -44,9 +44,6 @@ END
 echo "Combinations: $string_list"
 
 
-cp -r /home/mila/n/nekoeiha/scratch/multitask_learning_hanabi/Zeroshot_hanabi_instructrl/* $SLURM_TMPDIR
-
-cd $SLURM_TMPDIR/pyhanabi/
 MAX_RETRIES=3
 
 for file in $string_list; do

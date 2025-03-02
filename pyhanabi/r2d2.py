@@ -54,9 +54,6 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.target_net = TextLSTMNet(
                 device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
             ).to(device)
-        # elif net == "mha":
-        #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
-        #     self.target_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
         else:
             assert False, f"{net} not implemented"
 
@@ -117,8 +114,6 @@ class R2D2Agent(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         adv, new_hid = self.online_net.act(priv_s, publ_s, hid)
-        # print(f'adv: {adv.shape}')
-        # print(legal_move.shape)
         legal_adv = (1 + adv - adv.min()) * legal_move[:, :adv.shape[1]]
         greedy_action = legal_adv.argmax(1).detach()
         return greedy_action, new_hid, {"adv": adv, "legal_move": legal_move}
@@ -156,7 +151,6 @@ class R2D2Agent(torch.jit.ScriptModule):
         output: {'a' : actions}, a long Tensor of shape
             [batchsize] or [batchsize, num_player]
         """
-        # print(obs)
         if self.net == "publ-lstm" or self.net == "lstm":
             priv_s = obs["priv_s"].to(self.device)
             publ_s = priv_s[:, 125:] # obs["publ_s"]
@@ -178,7 +172,6 @@ class R2D2Agent(torch.jit.ScriptModule):
             "h0": obs["h0"].transpose(0, 1).flatten(1, 2).contiguous(),
             "c0": obs["c0"].transpose(0, 1).flatten(1, 2).contiguous(),
         }
-        # print("hid shape in act 158", hid['h0'].shape)
         if "llm_prior" in obs:
             pikl_lambda = obs["pikl_lambda"]
             llm_prior = obs["llm_prior"]
@@ -189,21 +182,14 @@ class R2D2Agent(torch.jit.ScriptModule):
             greedy_action, new_hid, extra = self.greedy_act(priv_s, publ_s, legal_move.to(self.device), hid)
 
         reply = {}
-        # random_action = legal_move.multinomial(1).squeeze(1)
         rand = torch.rand(greedy_action.size(), device=greedy_action.device)
         assert rand.size() == eps.size()
         rand = (rand < eps).float()
-        # action = (greedy_action * (1 - rand) + random_action * rand).detach().long()
         action = greedy_action.detach().long()
 
 
         reply["a"] = action.detach().cpu()
 
-        # for k, v in extra.items():
-        #     reply[k] = v.detach().cpu()
-
-        # convert hid back to the batch first shape
-        # hid size: [num_layer, batch x num_player, dim] -> [batch, num_layer, num_player, dim]
         for k, v in new_hid.items():
             v = v.transpose(0, 1).view(batch, num_layer, num_player, rnn_dim)
             reply[k] = v.detach().cpu()
@@ -239,19 +225,13 @@ class R2D2Agent(torch.jit.ScriptModule):
             publ_s = priv_s[:, :, 125:]
         else:
             priv_s = torch.transpose(priv_s, 1, 2)
-
-        # priv_s = priv_s.reshape(-1, priv_s.shape[2])
-
             publ_s = priv_s
 
 
         bsize, num_player = priv_s.size(1), 1
         for k, v in hid.items():
             hid[k] = v.flatten(1, 2).contiguous()
-        # this only works because the trajectories are padded,
-        # i.e. no terminal in the middle
-        # print("hid shape in line 225", hid['h0'].shape)
-        # print('update_text_encoder',update_text_encoder)
+
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
             priv_s, publ_s, legal_move, action, hid
         )

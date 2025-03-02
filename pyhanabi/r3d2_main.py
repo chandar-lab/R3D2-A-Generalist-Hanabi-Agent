@@ -111,14 +111,7 @@ def parse_args():
     args.lora_dim = int(args.lora_dim)
 
     args.seed = utils.get_seed(args.seed)
-    #
-    # if args.load_model:
-    #     save_path= args.load_model.split('/')[-2] + '/' + args.load_model.split('/')[-1]
-    #     args.save_dir = (args.save_dir + f'loaded_{save_path}_np_{args.num_player}'
-    #                      + f'_text_enc_{args.lm_weights}_s_{args.seed}')
-    # else:
 
-    # args.save_dir = (args.save_dir + f'_np_{args.num_player}' + f'_text_enc_{args.lm_weights}_s_{args.seed}')
     return args
 
 
@@ -142,7 +135,7 @@ def train(args):
         players_list=[2,3,4,5]
     else:
         players_list = [args.num_player]
-    # players_list= [2]
+
     for num_player in players_list:
         games.append(create_envs(
             args.num_thread * args.num_game_per_thread,
@@ -187,13 +180,7 @@ def train(args):
         optim.load_state_dict(torch.load(args.load_model.replace('epoch','epoch_optim').replace('.pthw','.pth') ,map_location=train_device))
 
         head, tail = args.load_model.rsplit('/', 1)  # head is the directory, tail is the filename
-        # # Replace the epoch in the filename and change the extension
-        # filename_buffer = f'replay_buffer.pth'
-        # # Construct the new path
-        # replay_buffer_path = f'{head}/{filename_buffer}'
-        # print('replay_buffer_path', replay_buffer_path)
-        #
-        # replay_buffer = torch.load(replay_buffer_path)
+
 
         print("***************done***************")
     else:
@@ -314,14 +301,6 @@ def train(args):
     sleep_time = 0
 
     for epoch in range(args.start_epoch, args.end_epoch + 1):
-        # if (args.pikl_lambda > 0
-        #     and epoch > 0
-        #     and args.pikl_anneal_per > 0
-        #     and epoch % args.pikl_anneal_per == 0
-        # ):
-        #     args.pikl_lambda *= args.pikl_anneal_rate
-        #     for actor in act_group.flat_actors:
-        #         actor.update_llm_lambda([args.pikl_lambda])
         print("start_epoch",args.start_epoch)
         print(f"EPOCH: {epoch}, pikl_lambda={args.pikl_lambda}")
         print(common_utils.get_mem_usage("(epoch start)"))
@@ -423,13 +402,7 @@ def train(args):
 
                 for i,p in enumerate(players_list):
                     contexts[i].resume()
-                #
-                # train_eval_metrics['perfect'] = perfect
-                # train_eval_metrics['score'] = score
-                # train_eval_metrics['train_steps'] = train_steps
-                # train_eval_metrics['num_of_traj'] = trajectories
-                # train_eval_metrics['num_of_actions'] = num_of_actions
-                # train_eval_metrics['epoch'] = epoch
+
 
 
             else:
@@ -443,10 +416,6 @@ def train(args):
                 online_net.state_dict(),optim.state_dict(),replay_buffer, score, force_save_name=force_save , force_save_name_optim= force_save_optim,force_replay_buffer_path= 'replay_buffer', config=vars(args)
             )
 
-            # torch.save(optim.state_dict(), '/home/mila/a/arjun.vaithilingam-sudhakar/scratch/final_hanabi_checkpoint/drrn_baselines/optimizer.pth')
-            # print(
-            #     f"Eval(epoch {epoch+1}): score: {score}, perfect: {perfect}, model saved: {model_saved}"
-            # )
 
 
         stopwatch.summary()

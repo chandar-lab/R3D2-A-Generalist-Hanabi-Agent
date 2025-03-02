@@ -4,22 +4,17 @@
 #SBATCH --gres=gpu:rtx8000:1
 #SBATCH --mem=32G
 #SBATCH --time=7:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 # Constants
 CHECKPOINT_DIR=$1 # Accept multiple directories as arguments
 
-
-echo "Copying files to temporary directory"
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec_text/* $SLURM_TMPDIR
-
-cd $SLURM_TMPDIR/pyhanabi/
 
 echo "Processing directory: $CHECKPOINT_DIR"
 

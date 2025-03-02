@@ -4,14 +4,14 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=71:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 python selfplay.py \
        --save_dir exps/iql \

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_PATH="/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2"
+BASE_PATH="${SCRATCH}/v2_hanabi_checkpoints_r3d2"
 numbers=(2 3 4 5)
 letters=(a b c d e)
 seeds=(1111 2222 3333 4444 5555)
@@ -13,7 +13,7 @@ for num in "${numbers[@]}"; do
     done
 done
 
-BASE_PATH="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/"
+BASE_PATH="${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/"
 numbers=(2 3 4 5)
 letters=(a b c)
 seeds=(1111 2222 3333)

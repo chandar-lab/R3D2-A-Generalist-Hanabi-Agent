@@ -4,24 +4,58 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=22:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8   # Example: adjust to your environment
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 SEED=$1
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec_text/* $SLURM_TMPDIR
+players=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2480.pthw"
+) # 'IQL-5a'
 
-cd $SLURM_TMPDIR/pyhanabi/
+alternatives_2=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/4/20/b/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/b/epoch2000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/3/20/b/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/5/20/a/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/5/20/a/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/a/epoch3320.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw"
+) # 'IQL-5b' 'R3-2b' 'R3-3b' 'R3-4b' 'R2T-2b' 'R2T-3b' 'R2T-4b'
 
-players=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2480.pthw') # 'IQL-5a'
-alternatives_2=( '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/b/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/b/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/3/20/b/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/a/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/a/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/a/epoch3320.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw') # 'IQL-5b' 'R3-2b' 'R3-3b' 'R3-4b' 'R2T-2b' 'R2T-3b' 'R2T-4b'
-alternatives_3=( '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/c/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2800.pthw'  '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/3/20/c/epoch3000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/b/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/b/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/b/epoch2500.pthw'  '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/b/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/b/epoch3280.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw')  # 'R3-2c' 'R3-3c' 'R3-4c' 'R2T-2c' 'R2T-3c' 'R2T-4c'
-alternatives_4=( '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/c/epoch2560.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/c/epoch2460.pthw'  '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/3/20/c/epoch3000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/c/epoch2000.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/c/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/c/epoch2500.pthw'  '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/c/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/b/epoch3280.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw')  # 'R3-2c' 'R3-3c' 'R3-4c' 'R2T-2c' 'R2T-3c' 'R2T-4c'
+alternatives_3=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/4/20/c/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/b/epoch2800.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/3/20/c/epoch3000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/5/20/b/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/2/20/b/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/3/20/b/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/5/20/b/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/b/epoch3280.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw"
+) # 'R3-2c' 'R3-3c' 'R3-4c' 'R2T-2c' 'R2T-3c' 'R2T-4c'
 
+alternatives_4=(
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/4/20/c/epoch2560.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/c/epoch2460.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/3/20/c/epoch3000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/5/20/c/epoch2000.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/2/20/c/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/3/20/c/epoch2500.pthw"
+  "${SCRATCH}/v2_hanabi_checkpoints_r3d2/5/20/c/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/b/epoch3280.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw"
+) # 'R3-2c' 'R3-3c' 'R3-4c' 'R2T-2c' 'R2T-3c' 'R2T-4c'
 pair_list=()
 
 for ((i=0; i<${#players[@]}; i++)); do

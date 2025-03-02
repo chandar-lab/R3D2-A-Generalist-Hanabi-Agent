@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=71:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/logs/cool_job-%j.out
+#SBATCH -o $SCRATCH/r3d2_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
@@ -19,7 +19,7 @@ PLAYER=$2
 UPDATE_FREQ=$3
 TOTAL_EPOCHS=4000
 EPOCHS_PER_RUN=20
-CHECKPOINT_DIR="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S"
+CHECKPOINT_DIR="${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S"
 
 CHECKPOINT_PATH="${CHECKPOINT_DIR}/${PLAYER}/${EPOCHS_PER_RUN}/${SEED}" #/${UPDATE_FREQ}
 
@@ -31,10 +31,6 @@ fi
 
 # Initialize start epoch
 START_EPOCH=1
-
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments* $SLURM_TMPDIR
-
-cd $SLURM_TMPDIR/pyhanabi/
 
 # Loop through until all epochs are completed
 while [ $START_EPOCH -le $TOTAL_EPOCHS ]

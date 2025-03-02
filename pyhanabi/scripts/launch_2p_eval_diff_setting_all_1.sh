@@ -4,24 +4,35 @@
 #SBATCH --gres=gpu:rtx8000:2
 #SBATCH --mem=48G
 #SBATCH --time=7:59:00
-#SBATCH -o /home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
+#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8   # Example: adjust to your environment
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 SEED=$1
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments_no_buffer_saving_both_vec_text/* $SLURM_TMPDIR
-
-cd $SLURM_TMPDIR/pyhanabi/
 
 
-players=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/b/epoch2500.pthw' ) # 'IQL-5a'
-alternatives_2=('/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/2/20/b/epoch2500.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/4/20/a/epoch2500.pthw' '/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2/5/20/b/epoch2520.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/3/20/a/epoch3000.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2480.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/R2D2-text-S/5/20/b/epoch2040.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/a/epoch3320.pthw' '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw') # 'IQL-5b' 'R3-2b' 'R3-3b' 'R3-4b' 'R2T-2b' 'R2T-3b' 'R2T-4b'
+# Generic players and alternatives paths using $SCRATCH
+players=(
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/a/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/b/epoch2500.pthw"
+) # 'IQL-5a'
 
+alternatives_2=(
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/2/20/c/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/3/20/a/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2500.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/5/20/b/epoch2520.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/3/20/a/epoch3000.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/4/20/a/epoch2480.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/R2D2-text-S/5/20/b/epoch2040.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/multitask_learning_no_saved_buffer/6/20/a/epoch3320.pthw"
+  "${SCRATCH}/final_hanabi_checkpoint/random_agent/2p/epoch0.pthw"
+) # 'IQL-5b' 'R3-2b' 'R3-3b' 'R3-4b' 'R2T-2b' 'R2T-3b' 'R2T-4b'
 pair_list=()
 for ((i=0; i<${#players[@]}; i++)); do
     for ((j=0; j<${#alternatives_2[@]}; j++)); do
