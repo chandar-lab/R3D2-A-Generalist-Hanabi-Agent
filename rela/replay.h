@@ -37,8 +37,6 @@ class Replay {
 
   void add(const RNNTransition& sample) {
     numAdd_ += 1;
-//    std::cout << "sample.seqLen " << typeid(sample.seqLen).name() << std::endl;
-//    std::cout << "Type of sample: " << typeid(sample).name() << std::endl;
     numAct_ += static_cast<unsigned long long >(sample.seqLen.item<int>());
 
     storage_.append(sample, 1);

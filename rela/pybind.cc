@@ -50,25 +50,6 @@ PYBIND11_MODULE(rela, m) {
     ));
 
 
-  // py::class_<RNNPrioritizedReplay, std::shared_ptr<RNNPrioritizedReplay>>(
-  //     m, "RNNPrioritizedReplay")
-  //     .def(py::init<
-  //          int,    // capacity,
-  //          int,    // seed,
-  //          float,  // alpha, priority exponent
-  //          float,  // beta, importance sampling exponent
-  //          int>())
-  //     .def("clear", &RNNPrioritizedReplay::clear)
-  //     .def("reset_alpha", &RNNPrioritizedReplay::resetAlpha)
-  //     .def("terminate", &RNNPrioritizedReplay::terminate)
-  //     .def("size", &RNNPrioritizedReplay::size)
-  //     .def("num_add", &RNNPrioritizedReplay::numAdd)
-  //     .def("sample", &RNNPrioritizedReplay::sample)
-  //     .def("update_priority", &RNNPrioritizedReplay::updatePriority)
-  //     .def("get", &RNNPrioritizedReplay::get)
-  //     .def("get_first_k", &RNNPrioritizedReplay::getFirstK)
-  //     .def("get_range", &RNNPrioritizedReplay::getRange);
-
   py::class_<Replay, std::shared_ptr<Replay>>(
       m, "RNNReplay")
       .def(py::init<
@@ -97,7 +78,6 @@ PYBIND11_MODULE(rela, m) {
             replay.numAdd(),
             replay.numAct(),
             storage_contents  // Serialize collected transitions
-//            replay.rng_.state()  // Save the RNG state (if needed later)
         );
     },
     [](py::tuple t) {
