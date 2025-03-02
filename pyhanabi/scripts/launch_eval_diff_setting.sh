@@ -14,9 +14,6 @@ source ~/scratch/r3d3_hanabi/bin/activate
 
 SEED=$1
 
-SCRATCH_MATHIEU="/home/mila/m/mathieu.reymond/scratch/v2_hanabi_checkpoints_r3d2"
-SCRATCH_NEKOEIHA="/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint"
-
 players=(
   "${SCRATCH}/v2_hanabi_checkpoints_r3d2/2/20/a/epoch2000.pthw"
   "${SCRATCH}/v2_hanabi_checkpoints_r3d2/3/20/a/epoch2000.pthw"

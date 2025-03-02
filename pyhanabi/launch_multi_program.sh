@@ -11,7 +11,7 @@ module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/mtl_hanabi/bin/activate
+source ~/scratch/r3d3_hanabi/bin/activate
 
 # Constants
 SEED=$1

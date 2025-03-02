@@ -32,10 +32,6 @@ fi
 # Initialize start epoch
 START_EPOCH=1
 
-cp -r /home/mila/n/nekoeiha/MILA/mtl_paper_experiments* $SLURM_TMPDIR
-
-cd $SLURM_TMPDIR/pyhanabi/
-
 # Loop through until all epochs are completed
 while [ $START_EPOCH -le $TOTAL_EPOCHS ]
 do

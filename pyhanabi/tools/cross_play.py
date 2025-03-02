@@ -41,13 +41,14 @@ def filter_exclude(entries, excludes):
 
 
 def cross_play(comb_string, num_game, seed):
+    base_path = os.getcwd()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     comb_string = comb_string.replace(',','')
     comb_string = comb_string.replace(']','')
     paths = re.findall(r'/[^"]+', comb_string)
     comb = paths[0].split('+')
 
-    folder_path = '/home/mila/n/nekoeiha/scratch/final_hanabi_checkpoint/zero_shot_eval_2p'
+    folder_path = os.path.join(base_path, 'zero_shot_eval_2p')
 
     os.makedirs(folder_path, exist_ok=True)
 
