@@ -139,7 +139,10 @@ class HanabiState {
   int Score() const;
   int MaxPossibleScore() const;
   std::string ToString() const;
+  std::string ToText() const;
+  std::vector<int> ToTokenize() const;
   std::string ToStringBasic() const;
+
 
   int CurPlayer() const { return cur_player_; }
   int LifeTokens() const { return life_tokens_; }

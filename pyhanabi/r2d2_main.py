@@ -20,20 +20,24 @@ import hanalearn  # type: ignore
 import r2d2
 import utils
 
+import wandb
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="train dqn on hanabi")
     parser.add_argument("--config", type=str, default=None)
 
     # training setup related
-    parser.add_argument("--save_dir", type=str, default="exps/exp1")
+    parser.add_argument("--save_dir", type=str, default="exps/iql")
     parser.add_argument("--save_per", type=int, default=50)
     parser.add_argument("--load_model", type=str, default="None")
     parser.add_argument("--seed", type=str, default="a")
     parser.add_argument("--train_device", type=str, default="cuda:0")
     parser.add_argument("--act_device", type=str, default="cuda:0")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
-    parser.add_argument("--target_data_ratio", type=float, default=None, help="train/gen")
+    parser.add_argument(
+        "--target_data_ratio", type=float, default=None, help="train/gen"
+    )
 
     # thread setting
     parser.add_argument("--num_thread", type=int, default=40, help="#thread_loop")
@@ -59,7 +63,9 @@ def parse_args():
     parser.add_argument("--batchsize", type=int, default=128)
 
     # model setting
-    parser.add_argument("--net", type=str, default="publ-lstm", help="publ-lstm/lstm/ffwd")
+    parser.add_argument(
+        "--net", type=str, default="publ-lstm", help="publ-lstm/lstm/ffwd"
+    )
     parser.add_argument("--num_lstm_layer", type=int, default=2)
     parser.add_argument("--rnn_hid_dim", type=int, default=512)
 
@@ -88,21 +94,51 @@ def parse_args():
 
     # debug
     parser.add_argument("--do_eval", type=int, default=1)
+    parser.add_argument("--wandb", type=str, default=1)
+
+    parser.add_argument("--update_freq_text_enc", type=str, default=1)
+    parser.add_argument("--lm_weights", type=str, default=1)
+    parser.add_argument("--num_of_additional_layer", type=str, default=1)
+    parser.add_argument("--lora_dim", type=str, default=0)
 
     args = parser.parse_args()
     args = common_utils.maybe_load_config(args)
+    args.update_freq_text_enc = int(args.update_freq_text_enc)
+    args.wandb = int(args.wandb)
+    args.num_of_additional_layer = int(args.num_of_additional_layer)
+    args.lora_dim = int(args.lora_dim)
 
     args.seed = utils.get_seed(args.seed)
+    if args.load_model:
+        save_path = (
+            args.load_model.split("/")[-2] + "/" + args.load_model.split("/")[-1]
+        )
+        args.save_dir = (
+            args.save_dir
+            + f"loaded_{save_path}_np_{args.num_player}_lora_dim_{str(args.lora_dim)}"
+            + f"_text_enc_{args.lm_weights}_s_{args.seed}"
+        )
+    else:
+        args.save_dir = (
+            args.save_dir
+            + f"_np_{args.num_player}_lora_dim_{str(args.lora_dim)}"
+            + f"_text_enc_{args.lm_weights}_s_{args.seed}"
+        )
     return args
 
 
 def train(args):
     common_utils.set_all_seeds(args.seed)
+    if args.wandb:
+        wandb.init(project="r2d2_drrn", entity="sarath-chandar", config=args)
 
     logger_path = os.path.join(args.save_dir, f"train.log")
     sys.stdout = common_utils.Logger(logger_path, print_to_stdout=True)
     pprint.pprint(vars(args))
     utils.print_gpu_info()
+
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
 
     train_device = args.train_device
     act_device = args.act_device
@@ -129,6 +165,10 @@ def train(args):
         games[0].num_action(),
         args.net,
         args.num_lstm_layer,
+        args.lm_weights,
+        args.num_player,
+        args.num_of_additional_layer,
+        args.lora_dim,
         off_belief=False,
     )
     print(agent)
@@ -150,8 +190,12 @@ def train(args):
         args.prefetch,
     )
 
-    explore_eps = utils.generate_explore_eps(args.act_base_eps, args.act_eps_alpha, args.num_eps)
-    eps_str = [[f"\n{eps:.9f}", f"{eps:.9f}"][i % 5 != 0]  for i, eps in enumerate(explore_eps)]
+    explore_eps = utils.generate_explore_eps(
+        args.act_base_eps, args.act_eps_alpha, args.num_eps
+    )
+    eps_str = [
+        [f"\n{eps:.9f}", f"{eps:.9f}"][i % 5 != 0] for i, eps in enumerate(explore_eps)
+    ]
     print("explore eps:", ", ".join(eps_str))
     print("avg explore eps:", np.mean(explore_eps))
 
@@ -182,11 +226,13 @@ def train(args):
 
     llm_prior = None
     if args.llm_prior is not None:
-        llm_prior = utils.load_and_process_llm_prior(args.llm_prior, games[0], verbose=False)
+        llm_prior = utils.load_and_process_llm_prior(
+            args.llm_prior, games[0], verbose=False
+        )
         if args.llm_noise > 0:
             flipped = 0
             total = 0
-            rng =  np.random.default_rng(seed=args.llm_noise_seed)
+            rng = np.random.default_rng(seed=args.llm_noise_seed)
             for key, vals in llm_prior.items():
                 for i, v in enumerate(vals):
                     total += 1
@@ -214,6 +260,28 @@ def train(args):
 
     act_group.start()
     context.start()
+
+    if args.do_eval:
+        score, perfect, *_ = evaluate(
+            [agent],
+            1000,
+            np.random.randint(100000),
+            args.bomb,
+            num_player=args.num_player,
+            pikl_lambdas=None if llm_prior is None else [args.pikl_lambda],
+            pikl_betas=None if llm_prior is None else [args.pikl_beta],
+            llm_priors=None if llm_prior is None else [llm_prior],
+            hand_size=args.hand_size,
+            num_color=args.num_color,
+            num_rank=args.num_rank,
+            num_hint=args.num_hint,
+        )
+        perfect *= 100
+    else:
+        score, perfect = None, None
+
+    print("Eval(epoch %d): score: %.4f, perfect: %.2f" % (0, score, perfect))
+
     while replay_buffer.size() < args.burn_in_frames:
         print("warming up replay buffer:", replay_buffer.size())
         time.sleep(1)
@@ -230,7 +298,8 @@ def train(args):
     sleep_time = 0
 
     for epoch in range(args.num_epoch):
-        if (args.pikl_lambda > 0
+        if (
+            args.pikl_lambda > 0
             and epoch > 0
             and args.pikl_anneal_per > 0
             and epoch % args.pikl_anneal_per == 0
@@ -258,13 +327,18 @@ def train(args):
                 batch = replay_buffer.sample(args.batchsize, train_device)
 
             with stopwatch.time("forward & backward"):
-                loss = agent.loss(batch, args.aux_weight, stat)
+                update_text_encoder = False
+                if num_update % args.update_freq_text_enc == 0:
+                    update_text_encoder = True
+                loss = agent.loss(batch, args.aux_weight, stat, update_text_encoder)
                 loss = loss.mean()
                 loss.backward()
                 torch.cuda.synchronize()
 
             with stopwatch.time("optim step"):
-                g_norm = torch.nn.utils.clip_grad_norm_(online_net.parameters(), args.grad_clip)
+                g_norm = torch.nn.utils.clip_grad_norm_(
+                    online_net.parameters(), args.grad_clip
+                )
                 optim.step()
                 optim.zero_grad()
                 torch.cuda.synchronize()
@@ -285,6 +359,7 @@ def train(args):
                 num_batch=args.epoch_len,
                 target_ratio=args.target_data_ratio,
                 current_sleep_time=sleep_time,
+                use_wandb=args.wandb,
             )
             sleep_time = 0.6 * sleep_time + 0.4 * new_sleep_time
             print(
@@ -316,13 +391,31 @@ def train(args):
             else:
                 score, perfect = None, None
 
-            force_save = f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
-            model_saved = saver.save(
-                online_net.state_dict(), score, force_save_name=force_save, config=vars(args)
+            force_save = (
+                f"epoch{epoch + 1}" if (epoch + 1) % args.save_per == 0 else None
             )
+
+            model_saved = saver.save(
+                online_net.state_dict(),
+                score,
+                force_save_name=force_save,
+                config=vars(args),
+            )
+            if args.wandb:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "score": score,
+                        "perfect": perfect,
+                        "episodes(num_buffer)": tachometer.num_buffer,
+                        "train_steps": tachometer.num_train,
+                        "action_steps": tachometer.num_of_actions,
+                    }
+                )
+
             print(
                 "Eval(epoch %d): score: %.4f, perfect: %.2f, model saved: %s"
-                % (epoch, score, perfect, model_saved)
+                % (epoch + 1, score, perfect, model_saved)
             )
             context.resume()
 
@@ -336,8 +429,5 @@ def train(args):
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True  # type: ignore
     args = parse_args()
-
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
 
     train(args)

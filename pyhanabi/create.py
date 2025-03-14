@@ -119,7 +119,6 @@ class ActGroupBase:
         for runner in self.model_runners:
             runner.update_model(agent)
 
-
 class SelfplayActGroup(ActGroupBase):
     def __init__(
         self,
@@ -174,4 +173,137 @@ class SelfplayActGroup(ActGroupBase):
             self.actors.append(thread_actors)
 
         print("Selfplay Group Created")
+
+
+
+class ActGroup:
+    def __init__(
+        self,
+        devices,
+        agent,
+        seed,
+        num_thread,
+        num_game_per_thread,
+        num_player,
+        explore_eps,
+        boltzmann_t,
+        method,
+        sad,
+        shuffle_color,
+        hide_action,
+        trinary,
+        replay_buffer,
+        multi_step,
+        max_len,
+        gamma,
+        off_belief,
+        belief_model,
+    ):
+        self.devices = devices.split(",")
+
+        self.model_runners = []
+        methods = {"act": 5000, "compute_priority": 100}
+        if off_belief:
+            methods["compute_target"] = 5000
+        make_model_runners(agent, self.devices, self.model_runners, methods)
+        self.num_runners = len(self.model_runners)
+
+        self.off_belief = off_belief
+        self.belief_model = belief_model
+        self.belief_runner = None
+        if belief_model is not None:
+            self.belief_runner = []
+            for bm in belief_model:
+                print("add belief model to: ", bm.device)
+                self.belief_runner.append(
+                    rela.BatchRunner(bm, bm.device, 5000, ["sample"])
+                )
+
+        self.actors = []
+        if method == "vdn":
+            for i in range(num_thread):
+                thread_actors = []
+                for j in range(num_game_per_thread):
+                    actor = hanalearn.R2D2Actor(
+                        self.model_runners[i % self.num_runners],
+                        seed,
+                        num_player,
+                        0,
+                        explore_eps,
+                        boltzmann_t,
+                        True,
+                        sad,
+                        shuffle_color,
+                        hide_action,
+                        trinary,
+                        replay_buffer,
+                        multi_step,
+                        max_len,
+                        gamma,
+                    )
+                    seed += 1
+                    thread_actors.append([actor])
+                self.actors.append(thread_actors)
+        elif method == "iql":
+            for i in range(num_thread):
+                thread_actors = []
+                for j in range(num_game_per_thread):
+                    game_actors = []
+                    for k in range(num_player):
+                        actor = hanalearn.R2D2Actor(
+                            self.model_runners[i % self.num_runners],
+                            seed,
+                            num_player,
+                            k,
+                            explore_eps,
+                            boltzmann_t,
+                            False,
+                            sad,
+                            shuffle_color,
+                            hide_action,
+                            trinary,
+                            replay_buffer,
+                            multi_step,
+                            max_len,
+                            gamma,
+                        )
+                        if self.off_belief:
+                            if self.belief_runner is None:
+                                actor.set_belief_runner(None)
+                            else:
+                                actor.set_belief_runner(
+                                    self.belief_runner[i % len(self.belief_runner)]
+                                )
+                        seed += 1
+                        game_actors.append(actor)
+                    for k in range(num_player):
+                        partners = game_actors[:]
+                        partners[k] = None
+                        game_actors[k].set_partners(partners)
+                    thread_actors.append(game_actors)
+                self.actors.append(thread_actors)
+        print("ActGroup created")
+
+    def start(self):
+        for runner in self.model_runners:
+            runner.start()
+
+        if self.belief_runner is not None:
+            for runner in self.belief_runner:
+                runner.start()
+
+    def update_model(self, agent):
+        for runner in self.model_runners:
+            runner.update_model(agent)
+
+def make_model_runners(agents, devices, runners, methods):
+    if not isinstance(agents, list):
+        agents = [agents]
+    for dev in devices:
+        for agent in agents:
+            runner = rela.BatchRunner(agent.clone(dev), dev)
+            for method, sample_limit in methods.items():
+                runner.add_method(method, sample_limit)
+            runners.append(runner)
+
 

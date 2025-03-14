@@ -1,6 +1,20 @@
 #include "cpp/r2d2_actor.h"
 #include "cpp/utils.h"
 #include <iomanip>
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <tokenizers_cpp.h>
+using tokenizers::Tokenizer;
+
+
+std::string global_path = (std::filesystem::current_path() / "hanabi-learning-environment/hanabi_lib/dist/tokenizer.json").string();
+std::string global_data;
+int flag = 0;
+std::unique_ptr<Tokenizer> global_tok;
+
 
 std::vector<hle::HanabiCardValue> sampleCards(
     const std::vector<float>& v0,
@@ -85,7 +99,6 @@ std::tuple<std::vector<hle::HanabiCardValue>, bool> filterSample(
 }
 
 std::tuple<bool, bool> analyzeCardBelief(const std::vector<float>& b) {
-  assert(b.size() == 25);
   std::set<int> colors;
   std::set<int> ranks;
   for (int c = 0; c < 5; ++c) {
@@ -263,12 +276,16 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::next(const HanabiEnv& env) {
   assert(false);
   return nullptr;
 }
-
 void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
   torch::NoGradGuard ng;
   prevHidden_ = hidden_;
-
+  std::vector<int> token_ids;
+  std::string result;
   const auto& state = env.getHleState();
+  result = state.ToText();
+
+  token_ids =  state.ToTokenize();
+
   auto input = observe(
       state,
       playerIdx_,
@@ -278,6 +295,8 @@ void R2D2Actor::observeBeforeAct(const HanabiEnv& env) {
       hideAction_,
       aux_,
       sad_);
+  input["priv_s_text"] = torch::tensor(token_ids);
+
 
   // add features such as eps and temperature
   if (epsList_.size()) {
@@ -427,35 +446,32 @@ std::unique_ptr<hle::HanabiMove> R2D2Actor::decideMove(const HanabiEnv& env) {
   // get the real action
   auto curPlayer = env.getCurrentPlayer();
   std::unique_ptr<hle::HanabiMove> move;
-  if (curPlayer != playerIdx_) {
-    assert(action == env.noOpUid());
-  } else {
-    auto& state = env.getHleState();
-    move = std::make_unique<hle::HanabiMove>(state.ParentGame()->GetMove(action));
-    if (shuffleColor_ && move->MoveType() == hle::HanabiMove::Type::kRevealColor) {
-      int realColor = invColorPermute_[move->Color()];
-      move->SetColor(realColor);
-    }
 
-    if (replayBuffer_ == nullptr) {
-      // collect stats
-      if (move->MoveType() == hle::HanabiMove::kPlay) {
-        auto cardBelief = perCardPrivV0_[move->CardIndex()];
-        auto [colorKnown, rankKnown] = analyzeCardBelief(cardBelief);
 
-        if (colorKnown && rankKnown) {
-          ++bothKnown_;
-        } else if (colorKnown) {
-          ++colorKnown_;
-        } else if (rankKnown) {
-          ++rankKnown_;
-        } else {
-          ++noneKnown_;
-        }
+  auto& state = env.getHleState();
+  move = std::make_unique<hle::HanabiMove>(state.ParentGame()->GetMove(action));
+  if (shuffleColor_ && move->MoveType() == hle::HanabiMove::Type::kRevealColor) {
+    int realColor = invColorPermute_[move->Color()];
+    move->SetColor(realColor);
+  }
+
+  if (replayBuffer_ == nullptr) {
+  // collect stats
+    if (move->MoveType() == hle::HanabiMove::kPlay) {
+      auto cardBelief = perCardPrivV0_[move->CardIndex()];
+      auto [colorKnown, rankKnown] = analyzeCardBelief(cardBelief);
+
+      if (colorKnown && rankKnown) {
+        ++bothKnown_;
+      } else if (colorKnown) {
+        ++colorKnown_;
+      } else if (rankKnown) {
+        ++rankKnown_;
+      } else {
+        ++noneKnown_;
       }
     }
   }
-
   if (offBelief_) {
     const auto& hand = fictState_->Hands()[playerIdx_];
     bool success = true;

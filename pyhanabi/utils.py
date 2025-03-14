@@ -10,6 +10,7 @@ import r2d2
 import ppo
 from create import create_envs
 import common_utils
+import wandb
 
 
 def process_compiled_state_dict(state_dict):
@@ -148,7 +149,7 @@ def load_agent(weight_file, overwrite):
         num_hint=cfg.get("num_hint", 8),
     )[0]
 
-    if "vdn" in cfg:
+    if "vdn" in cfg and cfg["vdn"]:
         # print("pikl_lambda:", cfg["pikl_lambda"])
         dqn_cfg = {
             "vdn": cfg.get("vdn", False),
@@ -160,29 +161,17 @@ def load_agent(weight_file, overwrite):
             "hid_dim": cfg["rnn_hid_dim"],
             "out_dim": game.num_action(),
             "num_lstm_layer": cfg["num_lstm_layer"],
-            "off_belief": cfg["off_belief"],
+            "off_belief": False, #cfg["off_belief"],
+            'lm_weights': cfg.get("lm_weights", None),
+            'num_of_player': cfg["num_player"],
+            'num_of_additional_layer': cfg["num_additional_layer"],
+            'lora_dim': cfg["lora_dim"],
         }
         agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
         load_weight(agent.online_net, weight_file, overwrite["device"])
         agent.sync_target_with_online()
-    elif cfg.get("method", "") == "iql":
-        # for legacy model
-        dqn_cfg = {
-            "vdn": False,
-            "multi_step": cfg["multi_step"],
-            "gamma": cfg["gamma"],
-            "device": overwrite["device"],
-            "net": cfg.get("net", "publ-lstm"),
-            "in_dim": game.feature_size(False),
-            "hid_dim": cfg["rnn_hid_dim"],
-            "out_dim": game.num_action(),
-            "num_lstm_layer": cfg["num_lstm_layer"],
-            "off_belief": cfg["off_belief"],
-        }
-        agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
-        load_weight(agent.online_net, weight_file, overwrite["device"])
-        agent.sync_target_with_online()
-    else:
+
+    elif cfg.get("method", "") == "ppo":
         ppo_cfg = {
             "ppo_clip": cfg["ppo_clip"],
             "ent_weight": cfg["ent_weight"],
@@ -198,6 +187,47 @@ def load_agent(weight_file, overwrite):
         }
         agent = ppo.PPOAgent(**ppo_cfg).to(overwrite["device"])
         load_weight(agent.policy_net, weight_file, overwrite["device"])
+        # for legacy model
+    else:
+        if cfg.get("net", "") == "lstm" or cfg.get("net", "") == "publ-lstm" or cfg.get("off_belief", False):
+            dqn_cfg = {
+                "vdn": False,
+                "multi_step": cfg["multi_step"],
+                "gamma": cfg["gamma"],
+                "device": overwrite["device"],
+                "net": cfg.get("net", "publ-lstm"),
+                "in_dim": game.feature_size(False),
+                "hid_dim": cfg["rnn_hid_dim"],
+                "out_dim": game.num_action(),
+                "num_lstm_layer": cfg["num_lstm_layer"],
+                "off_belief": cfg.get("off_belief", False),
+                'num_of_player': cfg["num_player"],
+            }
+            agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
+            load_weight(agent.online_net, weight_file, overwrite["device"])
+            agent.sync_target_with_online()
+        else:
+            dqn_cfg = {
+                "vdn": False,
+                "multi_step": cfg["multi_step"],
+                "gamma": cfg["gamma"],
+                "device": overwrite["device"],
+                "net": cfg.get("net", "drrn-lstm"),
+                "in_dim": game.feature_size(False),
+                "hid_dim": cfg["rnn_hid_dim"],
+                "out_dim": game.num_action(),
+                "num_lstm_layer": cfg["num_lstm_layer"],
+                "off_belief": False, #cfg["off_belief"],
+                'lm_weights': cfg.get("lm_weights", None),
+                'num_of_player': cfg["num_player"],
+                'num_of_additional_layer': cfg["num_of_additional_layer"],
+                'lora_dim': cfg["lora_dim"],
+                'num_lm_layer': cfg.get("num_lm_layer", 2),
+            }
+            agent = r2d2.R2D2Agent(**dqn_cfg).to(overwrite["device"])
+            load_weight(agent.online_net, weight_file, overwrite["device"])
+            agent.sync_target_with_online()
+
     return agent, cfg
 
 
@@ -254,17 +284,20 @@ class Tachometer:
         self.num_train = 0
         self.t = None
         self.total_time = 0
+        self.num_of_actions = 0
 
     def start(self):
         self.t = time.time()
 
     def lap(
-        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time
-    ) -> float:
+        self, replay_buffer, num_train, factor, num_batch, target_ratio, current_sleep_time) -> float:
         assert self.t is not None
         t = time.time() - self.t
         self.total_time += t
         num_buffer = replay_buffer.num_add()
+
+        num_of_actions = replay_buffer.num_act()
+        size = replay_buffer.size()
         buffer_rate = factor * (num_buffer - self.num_buffer) / t
         train_rate = factor * num_train / t
 
@@ -285,6 +318,11 @@ class Tachometer:
         )
         self.num_buffer = num_buffer
         self.num_train += num_train
+
+        if self.num_of_actions==0: # to handle overflow
+            self.num_of_actions = int(self.num_of_actions)
+        self.num_of_actions = num_of_actions
+
         print("Total Time: %s, %ds" % (common_utils.sec2str(self.total_time), self.total_time))
         print(
             "Total Sample: train: %s, buffer: %s"
@@ -293,7 +331,7 @@ class Tachometer:
                 common_utils.num2str(self.num_buffer),
             )
         )
-        return sleep_time
+        return sleep_time, self.num_train, self.num_buffer, self.num_of_actions
 
 
 def load_weight(model, weight_file, device, *, state_dict=None):
@@ -375,3 +413,7 @@ def ddp_setup(rank, world_size):
 
 def ddp_cleanup():
     dist.destroy_process_group()
+
+def get_num_params(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"self.state_lstm Number of parameters: {total_params}")

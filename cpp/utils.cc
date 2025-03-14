@@ -50,7 +50,7 @@ rela::TensorDict observe(
   assert(!sad);
   rela::TensorDict feat;
   feat = {{"priv_s", torch::tensor(vS)}};
-
+  feat["priv_s_text"] = torch::tensor(vS);
   if (aux == AuxType::Trinary) {
     auto vOwnHand = encoder.EncodeOwnHandTrinary(obs);
     feat["own_hand"] = torch::tensor(vOwnHand);
@@ -68,10 +68,9 @@ rela::TensorDict observe(
         encoder.EncodeARV0Belief(obs, std::vector<int>(), shuffleColor, colorPermute);
     feat["priv_ar_v0"] = torch::tensor(privARV0);
   }
-
   // legal moves
   const auto& legalMove = state.LegalMoves(playerIdx);
-  std::vector<float> vLegalMove(game.MaxMoves() + 1);
+  std::vector<float> vLegalMove(50 + 1); // game.MaxMoves()
   for (auto move : legalMove) {
     if (shuffleColor && move.MoveType() == hle::HanabiMove::Type::kRevealColor) {
       int permColor = colorPermute[move.Color()];
@@ -82,7 +81,7 @@ rela::TensorDict observe(
     vLegalMove[uid] = 1;
   }
   if (legalMove.size() == 0) {
-    vLegalMove[game.MaxMoves()] = 1;
+    vLegalMove[50] = 1; //game.MaxMoves()
   }
 
   feat["legal_move"] = torch::tensor(vLegalMove);

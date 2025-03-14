@@ -1,7 +1,8 @@
 import torch
+import json
 import torch.nn as nn
 from typing import Tuple, Dict
-from net import PublicLSTMNet, LSTMNet, MHANet
+from net import PublicLSTMNet, LSTMNet, MHANet, TextLSTMNet
 
 
 class R2D2Agent(torch.jit.ScriptModule):
@@ -16,9 +17,15 @@ class R2D2Agent(torch.jit.ScriptModule):
         out_dim,
         net,
         num_lstm_layer,
-        off_belief,
+        lm_weights="random",
+        num_of_player=2,
+        num_of_additional_layer=0,
+        num_lm_layer=1,
+        lora_dim=128,
+        off_belief=False,
     ):
         super().__init__()
+        self.out_dim = out_dim
         if net == "publ-lstm":
             self.online_net = PublicLSTMNet(
                 device, in_dim, hid_dim, out_dim, num_lstm_layer
@@ -33,9 +40,52 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.target_net = LSTMNet(
                 device, in_dim, hid_dim, out_dim, num_lstm_layer
             ).to(device)
-        # elif net == "mha":
-        #     self.online_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
-        #     self.target_net = MHANet(in_dim, hid_dim, out_dim, num_lstm_layer).to(device)
+        elif net == "drrn-lstm":
+            self.online_net = TextLSTMNet(
+                device,
+                in_dim,
+                hid_dim,
+                1,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
+            ).to(device)
+            self.target_net = TextLSTMNet(
+                device,
+                in_dim,
+                hid_dim,
+                1,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
+            ).to(device)
+        elif net == "text-input-lstm":
+            self.online_net = TextLSTMNet(
+                device,
+                in_dim,
+                hid_dim,
+                out_dim,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
+            ).to(device)
+            self.target_net = TextLSTMNet(
+                device,
+                in_dim,
+                hid_dim,
+                out_dim,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
+            ).to(device)
         else:
             assert False, f"{net} not implemented"
 
@@ -48,6 +98,12 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.net = net
         self.num_lstm_layer = num_lstm_layer
         self.off_belief = off_belief
+        self.device = device
+        self.lm_weights = lm_weights
+        self.num_of_player = num_of_player
+        self.lora_dim = lora_dim
+        self.num_of_additional_layer = num_of_additional_layer
+        self.num_lm_layer = num_lm_layer
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
@@ -67,6 +123,11 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.out_dim,
             self.net,
             self.num_lstm_layer,
+            self.lm_weights,
+            self.num_of_player,
+            self.num_of_additional_layer,
+            self.num_lm_layer,
+            self.lora_dim,
             self.off_belief,
         )
         cloned.load_state_dict(self.state_dict())
@@ -85,7 +146,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         adv, new_hid = self.online_net.act(priv_s, publ_s, hid)
-        legal_adv = (1 + adv - adv.min()) * legal_move
+        legal_adv = (1 + adv - adv.min()) * legal_move[:, : adv.shape[1]]
         greedy_action = legal_adv.argmax(1).detach()
         return greedy_action, new_hid, {"adv": adv, "legal_move": legal_move}
 
@@ -122,13 +183,18 @@ class R2D2Agent(torch.jit.ScriptModule):
         output: {'a' : actions}, a long Tensor of shape
             [batchsize] or [batchsize, num_player]
         """
-        priv_s = obs["priv_s"]
-        publ_s = priv_s[:, 125:] # obs["publ_s"]
-        legal_move = obs["legal_move"]
-        if "eps" in obs:
-            eps = obs["eps"].flatten(0, 1)
+        if self.net == "publ-lstm" or self.net == "lstm":
+            priv_s = obs["priv_s"].to(self.device)
+            publ_s = priv_s[:, 125:]  # obs["publ_s"]
+
         else:
-            eps = torch.zeros((priv_s.size(0),), device=priv_s.device)
+            priv_s = obs["priv_s_text"].to(self.device)
+            publ_s = priv_s[:, 125:]  # obs["publ_s"]
+        legal_move = obs["legal_move"].to(self.device)
+        if "eps" in obs:
+            eps = obs["eps"].flatten(0, 1).to(self.device)
+        else:
+            eps = torch.zeros((priv_s.size(0),), device=self.device)
 
         # converge it hid to from batch first to batch second
         # hid size: [batch, num_layer, num_player, dim] -> [num_layer, batch x num_player, dim]
@@ -138,7 +204,6 @@ class R2D2Agent(torch.jit.ScriptModule):
             "h0": obs["h0"].transpose(0, 1).flatten(1, 2).contiguous(),
             "c0": obs["c0"].transpose(0, 1).flatten(1, 2).contiguous(),
         }
-
         if "llm_prior" in obs:
             pikl_lambda = obs["pikl_lambda"]
             llm_prior = obs["llm_prior"]
@@ -146,29 +211,25 @@ class R2D2Agent(torch.jit.ScriptModule):
                 priv_s, publ_s, legal_move, hid, pikl_lambda, llm_prior
             )
         else:
-            greedy_action, new_hid, extra = self.greedy_act(priv_s, publ_s, legal_move, hid)
+            greedy_action, new_hid, extra = self.greedy_act(
+                priv_s, publ_s, legal_move.to(self.device), hid
+            )
 
         reply = {}
-        random_action = legal_move.multinomial(1).squeeze(1)
         rand = torch.rand(greedy_action.size(), device=greedy_action.device)
         assert rand.size() == eps.size()
         rand = (rand < eps).float()
-        action = (greedy_action * (1 - rand) + random_action * rand).detach().long()
+        action = greedy_action.detach().long()
 
         reply["a"] = action.detach().cpu()
 
-        # for k, v in extra.items():
-        #     reply[k] = v.detach().cpu()
-
-        # convert hid back to the batch first shape
-        # hid size: [num_layer, batch x num_player, dim] -> [batch, num_layer, num_player, dim]
         for k, v in new_hid.items():
             v = v.transpose(0, 1).view(batch, num_layer, num_player, rnn_dim)
             reply[k] = v.detach().cpu()
 
         return reply
 
-    # @torch.jit.script_method
+    @torch.jit.script_method
     def td_error(
         self,
         obs: Dict[str, torch.Tensor],
@@ -179,40 +240,32 @@ class R2D2Agent(torch.jit.ScriptModule):
         seq_len: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         max_seq_len = obs["priv_s"].size(0)
-        priv_s = obs["priv_s"]
-        legal_move = obs["legal_move"]
+        if self.net == "publ-lstm" or self.net == "lstm":
+            priv_s = obs["priv_s"].to(self.device)
+        else:
+            priv_s = obs["priv_s_text"].to(self.device)
+
+        legal_move = obs["legal_move"].to(self.device)
         action = reply["a"]
 
+        if self.net == "lstm":
+            if self.vdn:
+                num_player = priv_s.size(2)
+                priv_s = priv_s.flatten(1, 2)
+                legal_move = legal_move.flatten(1, 2)
+                action = action.flatten(1, 2)
+            publ_s = priv_s[:, :, 125:]
+        else:
+            priv_s = torch.transpose(priv_s, 1, 2)
+            publ_s = priv_s
+
+        bsize, num_player = priv_s.size(1), 1
         for k, v in hid.items():
             hid[k] = v.flatten(1, 2).contiguous()
 
-        bsize, num_player = priv_s.size(1), 1
-        if self.vdn:
-            num_player = priv_s.size(2)
-            priv_s = priv_s.flatten(1, 2)
-            legal_move = legal_move.flatten(1, 2)
-            action = action.flatten(1, 2)
-
-        publ_s = priv_s[:, :, 125:]
-
-        # this only works because the trajectories are padded,
-        # i.e. no terminal in the middle
         online_qa, greedy_a, online_q, lstm_o = self.online_net(
             priv_s, publ_s, legal_move, action, hid
         )
-        if "llm_prior" in obs:
-            llm_prior = obs["llm_prior"]
-            pikl_lambda = obs["pikl_lambda"]
-            if self.vdn:
-                llm_prior = llm_prior.flatten(1, 2)
-                pikl_lambda = pikl_lambda.flatten(1, 2)
-
-            pikl_lambda = pikl_lambda.unsqueeze(2)
-            assert pikl_lambda.dim() == llm_prior.dim()
-            assert online_q.size() == llm_prior.size()
-            pikl_q = online_q + pikl_lambda * llm_prior
-            legal_q = pikl_q - (1 - legal_move) * 1e10
-            greedy_a = legal_q.argmax(2).detach()
 
         if self.off_belief:
             target = obs["target"]

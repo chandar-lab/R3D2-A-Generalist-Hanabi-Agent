@@ -21,27 +21,34 @@ PYBIND11_MODULE(rela, m) {
       .def_readwrite("reward", &RNNTransition::reward)
     //   .def_readwrite("terminal", &RNNTransition::terminal)
       .def_readwrite("bootstrap", &RNNTransition::bootstrap)
-      .def_readwrite("seq_len", &RNNTransition::seqLen);
+      .def_readwrite("seq_len", &RNNTransition::seqLen)
+      .def(py::pickle(
+        [](const RNNTransition& transition) {
+            // __getstate__ for serialization (convert to a tuple)
+            return py::make_tuple(
+                transition.obs, transition.h0, transition.action,
+                transition.reward, transition.bootstrap, transition.seqLen
+            );
+        },
+        [](py::tuple t) {
+            // __setstate__ for deserialization (reconstruct from a tuple)
+            if (t.size() != 6) {
+                throw std::runtime_error("Invalid state!");
+            }
 
+            // Create a new instance and populate fields
+            RNNTransition transition;
+            transition.obs = t[0].cast<TensorDict>();
+            transition.h0 = t[1].cast<TensorDict>();
+            transition.action = t[2].cast<TensorDict>();
+            transition.reward = t[3].cast<torch::Tensor>();
+            transition.bootstrap = t[4].cast<torch::Tensor>();
+            transition.seqLen = t[5].cast<torch::Tensor>();
 
-  // py::class_<RNNPrioritizedReplay, std::shared_ptr<RNNPrioritizedReplay>>(
-  //     m, "RNNPrioritizedReplay")
-  //     .def(py::init<
-  //          int,    // capacity,
-  //          int,    // seed,
-  //          float,  // alpha, priority exponent
-  //          float,  // beta, importance sampling exponent
-  //          int>())
-  //     .def("clear", &RNNPrioritizedReplay::clear)
-  //     .def("reset_alpha", &RNNPrioritizedReplay::resetAlpha)
-  //     .def("terminate", &RNNPrioritizedReplay::terminate)
-  //     .def("size", &RNNPrioritizedReplay::size)
-  //     .def("num_add", &RNNPrioritizedReplay::numAdd)
-  //     .def("sample", &RNNPrioritizedReplay::sample)
-  //     .def("update_priority", &RNNPrioritizedReplay::updatePriority)
-  //     .def("get", &RNNPrioritizedReplay::get)
-  //     .def("get_first_k", &RNNPrioritizedReplay::getFirstK)
-  //     .def("get_range", &RNNPrioritizedReplay::getRange);
+            return transition;
+        }
+    ));
+
 
   py::class_<Replay, std::shared_ptr<Replay>>(
       m, "RNNReplay")
@@ -53,22 +60,53 @@ PYBIND11_MODULE(rela, m) {
       .def("terminate", &Replay::terminate)
       .def("size", &Replay::size)
       .def("num_add", &Replay::numAdd)
+      .def("num_act", &Replay::numAct)
       .def("sample", &Replay::sample)
       .def("get", &Replay::get)
-      .def("get_range", &Replay::getRange);
+      .def("get_range", &Replay::getRange)
+      .def(py::pickle(
+    [](const Replay& replay) {
+        // __getstate__ (serialize)
+        std::vector<RNNTransition> storage_contents;
+        for (int i = 0; i < replay.size(); ++i) {
+            storage_contents.push_back(replay.get(i));  // Iterate and collect transitions
+        }
 
-//   py::class_<TensorDictReplay, std::shared_ptr<TensorDictReplay>>(m, "TensorDictReplay")
-//       .def(py::init<
-//            int,    // capacity,
-//            int,    // seed,
-//            float,  // alpha, priority exponent
-//            float,  // beta, importance sampling exponent
-//            int>())
-//       .def("size", &TensorDictReplay::size)
-//       .def("num_add", &TensorDictReplay::numAdd)
-//       .def("sample", &TensorDictReplay::sample)
-//       .def("update_priority", &TensorDictReplay::updatePriority)
-//       .def("get", &TensorDictReplay::get);
+        return py::make_tuple(
+            replay.prefetch_,
+            replay.capacity_,
+            replay.numAdd(),
+            replay.numAct(),
+            storage_contents  // Serialize collected transitions
+        );
+    },
+    [](py::tuple t) {
+        // __setstate__ (deserialize)
+        if (t.size() != 5) {  // Adjust size to reflect the correct number of elements
+            throw std::runtime_error("Invalid state!");
+        }
+
+        // Create a new instance of Replay using move semantics
+        auto replay = std::make_unique<Replay>(
+            t[1].cast<int>(),  // capacity
+            0,  // seed (we'll ignore seed during deserialization)
+            t[0].cast<int>()   // prefetch
+        );
+
+        // Restore the internal states
+        replay->numAdd_ = t[2].cast<int>();
+        replay->numAct_ = t[3].cast<unsigned long long>();
+
+        // Repopulate the storage by iterating over the deserialized transitions
+        std::vector<RNNTransition> storage_contents = t[4].cast<std::vector<RNNTransition>>();
+        for (const auto& transition : storage_contents) {
+            replay->storage_.append(transition, 1);  // Append deserialized transitions
+        }
+
+        return replay;  // Return the unique pointer to the Replay instance
+    }
+));
+
 
   py::class_<ThreadLoop, std::shared_ptr<ThreadLoop>>(m, "ThreadLoop");
 

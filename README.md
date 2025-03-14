@@ -1,113 +1,201 @@
-# Language Instructed Reinforcement Learning for Human-AI Coordination
+# A Generalist Hanabi Agent - Recurrent Replay Relevance Distributed DQN (R3D2)
 
-This is the code for [Language Instructed Reinforcement Learning for Human-AI Coordination](https://arxiv.org/abs/2304.07297) (ICML 2023).
+
+## Overview
+Recurrent Replay Relevance Distributed DQN (R3D2) is a generalist multi-agent reinforcement learning (MARL) agent designed to play Hanabi across all game settings while adapting to unfamiliar collaborators. Unlike traditional MARL agents that struggle with transferability and cooperation beyond their training setting, R3D2 utilizes language-based reformulation and a distributed learning approach to handle dynamic observation and action spaces. This allows it to generalize across different game configurations and effectively collaborate with diverse algorithmic agents.
+
+## Key Features
+- **Generalized MARL agent**: Play Hanabi across different player settings (2-to-5 players) without changing architecture or retraining from scratch.
+
+- **Adaptive cooperation**: Capable of collaborating with unfamiliar partners, overcoming limitations of traditional MARL systems.
+
+- **Language-based task reformulation**: Utilizes text representations to enhance transfer learning and generalization.
+
+- **Distributed Learning Framework**: Employs a scalable MARL algorithm to handle dynamic observations and actions effectively.
+
+
+## R3D2 Architecture:
+![R3D2 Architecture](images/r3d2_architecture.png)
 
 The code has been tested with PyTorch 2.0.1
+
 
 ## Get Started
 
 Clone the repo with `--recursive` to include submodules
 ```bash
-git clone --recursive git@github.com:hengyuan-hu/instruct-rl.git
+git clone --recursive git@github.com:chandar-lab/R3D2-A-Generalist-Hanabi-Agent.git
 ```
 
-Dependencies
-```bash
-pip install tdqm scipy matplotlib 'transformers[torch]'
-pip install openai
-```
+## Table of Contents
 
-## The Say-Select Experiments
+- [Environment Setup](#environment-setup)
+- [Dependencies](#dependencies)
+- [GPU Configuration](#gpu-configuration)
+- [Building Tokenizers](#building-tokenizers)
+- [Additional Information](#additional-information)
+- [Training Scripts R2D2, R3D2](#batch-job-submission-guide)
+- [Evaluation Scripts Job](evaluation-job-scrips)
 
-```bash
-cd say-select
 
-# train instruct-rl policies using default hyper-parameters
-python train.py
+---
 
-# train vanilla rl policies
-python train.py --lmd 0
-```
 
-## The Hanabi Experiments
+## Hanabi Learning Environment Setup
 
-### Prepare
+This repository contains the setup instructions for the Hanabi learning environment and related dependencies.
 
-First build the C++ part of the repo if you want to train/evaluate models
-```bash
-# under the root folder of the repo, compile
-make
 
-# Run this line before running any training code to prevent tensor operations
-# from using single thread as our code uses multi-threading internally to run
-# large number of environments in parallel
-# Add it to your bashrc for convenience
-export OMP_NUM_THREADS=1
-```
+## Environment Setup
 
-Download pretrained OBL models and fully trained models used in ICML paper.
-```bash
-# under instruct-rl root directory
-pip install gdown
-gdown https://drive.google.com/uc\?id\=1Kko7L9zdS6ywCUs6VIaeCY32kGU1RZrz
-unzip models.zip
-```
+1. **Create a Conda environment**:
+   ```bash
+   conda create --name r3d3_hanabi python=3.9
+   ```
+2. **Activate the environment**:
+   ```bash
+   conda activate r3d3_hanabi
+   ```
 
-Or directly download from Google Drive: `https://drive.google.com/file/d/1Kko7L9zdS6ywCUs6VIaeCY32kGU1RZrz/view?usp=drive_link`
+## Dependencies
 
-### Run the code
+1. **Install PyTorch (CUDA 11.8)**:
+   ```bash
+   pip install torch==2.0.1 --index-url https://download.pytorch.org/whl/cu118
+   ```
 
-Then go to the `pyhanabi` folder to run the code.
+2. **Install Transformers library**:
+   ```bash
+   pip install transformers==4.31.0
+   ```
+
+3. **Load Python module**:
+   ```bash
+   module load python/3.9
+   ```
+
+4. **Install additional Python packages**:
+   ```bash
+   pip install cmake tabulate cffi psutil
+   pip install tdqm scipy matplotlib wandb
+   ```
+
+## GPU Configuration
+
+1. **Load CUDA module**:
+   ```bash
+   module load cuda/11.8
+   ```
+
+2. **Install Rust for building tokenizers**:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+## Building Tokenizers
+
+1. **Navigate to the `hanabi_lib` directory**:
+   ```bash
+   cd hanabi-learning-environment/hanabi_lib/
+   ```
+
+2. **Clone the `tokenizers-cpp` repository**:
+   ```bash
+   git clone --recursive git@github.com:mlc-ai/tokenizers-cpp.git
+   ```
+
+## Build
+   ```bash
+   make
+   ```
+---
+
+## Additional Information
+
+- Ensure that all required modules are properly loaded in your environment.
+- The setup assumes access to a GPU with CUDA 11.8 support.
+- Use `wandb` for experiment tracking and logging during model training.
+- If issues arise during the setup, check for compatibility between package versions and your system configuration.
+
+Feel free to contribute or report issues!
+
+
+## Training Scripts R2D2, R3D2
+
+This guide provides batch job submission commands to execute three different scripts (`submit_job_iql.sh`, `submit_jobs_other_player.sh`, and `launch_r3d2.sh`) for multiple models and players.
+
+## Commands
 ```bash
 cd pyhanabi
 ```
 
-Generate the language observations and language descriptions of the possible actions.
+### Submitting Jobs for `submit_job_iql.sh`
+The following command submits jobs for each model (`a`, `b`, `c`, `d`, `e`) and each player count (`2`, `3`, `4`, `5`):
 ```bash
-python gen_all_langs.py
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/submit_job_iql.sh $m $p; 
+    done; 
+done;
 ```
 
-The `openai_api.py` file contains code to evaluate prompts using `openai-api`. Please check
-that file for detailed instructions. That file is deisgned to run interactively using VSCode's
-[Python interactive window](https://code.visualstudio.com/docs/python/jupyter-support-py).
-Pre-generated prior policies used in the paper are stored in `pyhanabi/openai`.
-
-To train the model, run
+### Submitting Jobs for `submit_jobs_other_player.sh`
+The following command submits jobs for `submit_jobs_other_player.sh` with the same models and player counts:
 ```bash
-export OMP_NUM_THREADS=1  # if you have not put this into bashrc
-# ppo, the config uses color-instruction
-python ppo_main.py --config configs/ppo.yaml
-
-# iql,  the config uses color-instruction
-python r2d2_main.py --config configs/iql.yaml
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/submit_jobs_other_player.sh $m $p; 
+    done; 
+done;
 ```
 
-### Additional resources
-
-To evaluate a trained model
+### Submitting Jobs for Single-task R3D2 `launch_r3d2.sh`
+The following command submits jobs for `launch_r3d2.sh` with the same models and player counts:
 ```bash
-# inside pyhanabi folder
-python tools/eval_model.py --weight1 ../models/icml/iql_rank/iql1_pkr_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 2 3 4 5; do 
+        sbatch scripts/launch_r3d2.sh $m $p; 
+    done; 
+done;
 ```
 
-To examine the condtional action matrix
+###  Submitting Jobs for Multi-task R3D2 `launch_r3d2.sh` (Player 6)
+The following command submits jobs for `launch_r3d2.sh` for `Player 6`, representing multi-task R3D2, with the same models:
+
 ```bash
-python tools/action_matrix.py --model ../models/icml/iql_color/iql1_pkc_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+
+for m in "a" "b" "c" "d" "e"; do 
+    for p in 6; do 
+        sbatch scripts/launch_r3d2.sh $m $p; 
+    done; 
+done;
 ```
 
-To train a belief model
+## Explanation
+
+- **Seed (`m`)**: The scripts will iterate over the models `a`, `b`, `c`, `d`, and `e`.
+- **Player Setting (`p`)**: Jobs will be submitted for player counts of `2`, `3`, `4`, and `5`.
+- **Scripts**: The three scripts handle different types of job submissions (`IQL`, `other players`, and `R3D2`).
+
+
+
+## Evaluation Scripts Job
+
 ```bash
-python train_belief.py --policy ../models/icml/iql_color/iql1_pkc_load_pikl_lambda0.15_seeda_num_epoch50/model0.pthw
+scripts/launch_2p_eval_diff_setting_all.sh
+scripts/launch_3p_eval_diff_setting_all.sh
+scripts/launch_4p_eval_diff_setting_all.sh
+scripts/launch_5p_eval_diff_setting_all.sh
+
+scripts/launch_cross_play.sh
+
+
 ```
 
-To run sparta for the fast adaptation experiments in the appendix
-```bash
-python sparta.py
-```
+## Additional Comments:
 
-To host a bot online so that people can play with it.
-```bash
-cd live_bot
-pip install websocket-client requests
-python main.py --name Bot-Color --login_name Bot-Something --password agoodpassword
-```
+`HanabiState::ToText()` converts the game's current state into a human-readable format, providing details on tokens, fireworks, and player hands. [Reference](https://github.com/chandar-lab/Zeroshot_hanabi_instructrl/blob/312366b3038159c8a68476cf44afd0ae609ff26c/hanabi-learning-environment/hanabi_lib/hanabi_state.cc#L393)
+
+
+
+This code base is based on  [Language Instructed Reinforcement Learning for Human-AI Coordination (ICML 2023)](https://github.com/hengyuan-hu/instruct-rl).
