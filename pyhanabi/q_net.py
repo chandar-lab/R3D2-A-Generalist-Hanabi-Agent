@@ -23,7 +23,8 @@ def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Te
 
     legal_a = (
         a * legal_move[:, :, : a.shape[-1]]
-    )  # a.shape[-1] to determine the number of valid moves for each player. It masking out invalid moves, ensuring only the valid moves for each player are selected.
+    )  # a.shape[-1] to determine the number of valid moves for each player.
+    # It masking out invalid moves, ensuring only the valid moves for each player are selected.
     # NOTE: this may cause instability
     # avg_legal_a = legal_a.sum(2, keepdim=True) / legal_move.sum(2, keepdim=True).clamp(min=0.1)
     # q = v + legal_a - avg_legal_a
@@ -58,7 +59,6 @@ def cross_entropy(net, lstm_o, target_p, hand_slot_mask, seq_len):
 class LSTMNet(torch.jit.ScriptModule):
     def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
         super().__init__()
-        # for backward compatibility
         if isinstance(in_dim, int):
             assert in_dim == 783
             self.in_dim = in_dim
@@ -476,14 +476,10 @@ class TextLSTMNet(torch.jit.ScriptModule):
         lora_dim,
     ):
         super().__init__()
-        # for backward compatibility
-
         self.in_dim = in_dim
         self.device = device
         self.hid_dim = hid_dim
-        print(out_dim)
         self.out_dim = out_dim
-        print(self.out_dim)
         self.num_ff_layer = 1
         self.num_lstm_layer = num_lstm_layer
         self.num_of_player = num_of_player
@@ -574,7 +570,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         model.to(self.device)
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
-        print("params lora", params)
         tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
         dummy_input = tokenizer(
             "Hello, this is a TorchScript test", return_tensors="pt"
@@ -588,7 +583,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         oldModuleList = model.encoder.layer
         newModuleList = nn.ModuleList()
 
-        # Now iterate over all layers, only keepign only the relevant layers.
+        # Now iterate over all layers, only keeping only the relevant layers.
         for i in range(0, num_layers_to_keep):
             newModuleList.append(oldModuleList[i])
 
@@ -683,7 +678,6 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # action: [seq_len, batch]
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
 
-        # assert q.size() == legal_move.size()
         legal_q = (1 + q - q.min()) * legal_move[:, :, : q.shape[-1]]
         # greedy_action: [seq_len, batch]
         greedy_action = legal_q.argmax(2).detach()
