@@ -1,7 +1,7 @@
 num_thread: 40
 num_game_per_thread: 120
 replay_buffer_size: 50000
-burn_in_frames: 10000 #00
+burn_in_frames: 10000
 train_device: cuda:0
 act_device: cuda:1
 vdn: 0

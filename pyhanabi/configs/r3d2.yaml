@@ -17,7 +17,7 @@ pikl_beta: 1
 pikl_lambda: 0.15
 shuffle_color: 0
 target_data_ratio: 2
-load_model: # exps/test_len80_b32_500epochs/model0.pthw
+load_model:
 save_per: 50
 batchsize: 64
 max_len: 80

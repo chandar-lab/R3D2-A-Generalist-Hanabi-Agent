@@ -17,7 +17,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         out_dim,
         net,
         num_lstm_layer,
-        lm_weights='random',
+        lm_weights="random",
         num_of_player=2,
         num_of_additional_layer=0,
         num_lm_layer=1,
@@ -42,17 +42,49 @@ class R2D2Agent(torch.jit.ScriptModule):
             ).to(device)
         elif net == "drrn-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
+                device,
+                in_dim,
+                hid_dim,
+                1,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, 1, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
+                device,
+                in_dim,
+                hid_dim,
+                1,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
             ).to(device)
         elif net == "text-input-lstm":
             self.online_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
+                device,
+                in_dim,
+                hid_dim,
+                out_dim,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
             ).to(device)
             self.target_net = TextLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer,lm_weights,num_of_player, num_lm_layer,lora_dim
+                device,
+                in_dim,
+                hid_dim,
+                out_dim,
+                num_lstm_layer,
+                lm_weights,
+                num_of_player,
+                num_lm_layer,
+                lora_dim,
             ).to(device)
         else:
             assert False, f"{net} not implemented"
@@ -96,7 +128,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.num_of_additional_layer,
             self.num_lm_layer,
             self.lora_dim,
-            self.off_belief
+            self.off_belief,
         )
         cloned.load_state_dict(self.state_dict())
         cloned.train(self.training)
@@ -114,7 +146,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         adv, new_hid = self.online_net.act(priv_s, publ_s, hid)
-        legal_adv = (1 + adv - adv.min()) * legal_move[:, :adv.shape[1]]
+        legal_adv = (1 + adv - adv.min()) * legal_move[:, : adv.shape[1]]
         greedy_action = legal_adv.argmax(1).detach()
         return greedy_action, new_hid, {"adv": adv, "legal_move": legal_move}
 
@@ -153,11 +185,11 @@ class R2D2Agent(torch.jit.ScriptModule):
         """
         if self.net == "publ-lstm" or self.net == "lstm":
             priv_s = obs["priv_s"].to(self.device)
-            publ_s = priv_s[:, 125:] # obs["publ_s"]
+            publ_s = priv_s[:, 125:]  # obs["publ_s"]
 
         else:
             priv_s = obs["priv_s_text"].to(self.device)
-            publ_s = priv_s[:, 125:] # obs["publ_s"]
+            publ_s = priv_s[:, 125:]  # obs["publ_s"]
         legal_move = obs["legal_move"].to(self.device)
         if "eps" in obs:
             eps = obs["eps"].flatten(0, 1).to(self.device)
@@ -179,14 +211,15 @@ class R2D2Agent(torch.jit.ScriptModule):
                 priv_s, publ_s, legal_move, hid, pikl_lambda, llm_prior
             )
         else:
-            greedy_action, new_hid, extra = self.greedy_act(priv_s, publ_s, legal_move.to(self.device), hid)
+            greedy_action, new_hid, extra = self.greedy_act(
+                priv_s, publ_s, legal_move.to(self.device), hid
+            )
 
         reply = {}
         rand = torch.rand(greedy_action.size(), device=greedy_action.device)
         assert rand.size() == eps.size()
         rand = (rand < eps).float()
         action = greedy_action.detach().long()
-
 
         reply["a"] = action.detach().cpu()
 
@@ -204,8 +237,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         reply: Dict[str, torch.Tensor],
         reward: torch.Tensor,
         bootstrap: torch.Tensor,
-        seq_len: torch.Tensor
-
+        seq_len: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         max_seq_len = obs["priv_s"].size(0)
         if self.net == "publ-lstm" or self.net == "lstm":
@@ -216,7 +248,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         legal_move = obs["legal_move"].to(self.device)
         action = reply["a"]
 
-        if self.net=="lstm":
+        if self.net == "lstm":
             if self.vdn:
                 num_player = priv_s.size(2)
                 priv_s = priv_s.flatten(1, 2)
@@ -226,7 +258,6 @@ class R2D2Agent(torch.jit.ScriptModule):
         else:
             priv_s = torch.transpose(priv_s, 1, 2)
             publ_s = priv_s
-
 
         bsize, num_player = priv_s.size(1), 1
         for k, v in hid.items():
@@ -286,7 +317,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             batch.action,
             batch.reward,
             batch.bootstrap,
-            batch.seq_len
+            batch.seq_len,
         )
         rl_loss = nn.functional.smooth_l1_loss(
             err, torch.zeros_like(err), reduction="none"

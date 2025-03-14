@@ -13,18 +13,17 @@ import common_utils
 import glob
 import os
 import wandb
-# os.environ['WANDB_API_KEY'] =
+
 lib_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(lib_path)
 from eval import evaluate_saved_model
 
 
-# main program
 parser = argparse.ArgumentParser()
 parser.add_argument("--weight1", default=None, type=str, required=True)
 parser.add_argument("--weight2", default=None, type=str)
 parser.add_argument("--weight3", default=None, type=str)
-parser.add_argument("--method", default='R3D2', type=str)
+parser.add_argument("--method", default="R3D2", type=str)
 parser.add_argument("--num_player", default=2, type=int)
 parser.add_argument("--seed", default=1, type=int)
 parser.add_argument("--bomb", default=0, type=int)
@@ -39,10 +38,17 @@ parser.add_argument("--overwrite1", default=None, type=str)
 parser.add_argument("--overwrite2", default=None, type=str)
 
 args = parser.parse_args()
-wand_id = '_'.join(args.weight1.split('/')[-6:-1])
-wandb.init(project='R3D2-training', entity='sarath-chandar',config=args, resume="allow", id=wand_id, mode="disabled") # ,
+wand_id = "_".join(args.weight1.split("/")[-6:-1])
+wandb.init(
+    project="R3D2-training",
+    entity="default-entity",
+    config=args,
+    resume="allow",
+    id=wand_id,
+    mode="disabled",
+)  # ,
 device = "cuda" if torch.cuda.is_available() else "cpu"
-epoch_number  = int(args.weight1.split('/')[-1].split('.')[0].replace('epoch',''))
+epoch_number = int(args.weight1.split("/")[-1].split(".")[0].replace("epoch", ""))
 if args.num_player == 2:
     if args.weight2 is None:
         args.weight2 = args.weight1
@@ -61,14 +67,19 @@ _, _, perfect, scores, actors, _ = evaluate_saved_model(
     args.bomb,
     num_run=args.num_run,
     device=device,
-    overwrites=None
+    overwrites=None,
 )
 non_zero_scores = [s for s in scores if s > 0]
 print(f"non zero mean: {np.mean(non_zero_scores):.3f}")
 print(f"bomb out rate: {100 * (1 - len(non_zero_scores) / len(scores)):.2f}%")
-# print(scores)
 
-wandb.log({f"{args.num_player}/epoch": epoch_number, f"{args.num_player}/score": np.mean(scores), f"{args.num_player}/perfect": perfect})
+wandb.log(
+    {
+        f"{args.num_player}/epoch": epoch_number,
+        f"{args.num_player}/score": np.mean(scores),
+        f"{args.num_player}/perfect": perfect,
+    }
+)
 # 4 numbers represent: [none, color, rank, both] respectively
 card_stats = []
 for g in actors:

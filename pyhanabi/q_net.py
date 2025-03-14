@@ -4,7 +4,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Dict
 import numpy as np
-from transformers import AutoTokenizer, AutoModel, BertModel, BertConfig, BertTokenizer, BertForPreTraining, DistilBertModel, DistilBertTokenizer
+from transformers import (
+    AutoTokenizer,
+    AutoModel,
+    BertModel,
+    BertConfig,
+    BertTokenizer,
+    BertForPreTraining,
+    DistilBertModel,
+    DistilBertTokenizer,
+)
 import copy
 from functools import partial
 
@@ -12,7 +21,9 @@ from functools import partial
 @torch.jit.script
 def duel(v: torch.Tensor, a: torch.Tensor, legal_move: torch.Tensor) -> torch.Tensor:
 
-    legal_a = a * legal_move[:, :, :a.shape[-1]] # a.shape[-1] to determine the number of valid moves for each player. It masking out invalid moves, ensuring only the valid moves for each player are selected.
+    legal_a = (
+        a * legal_move[:, :, : a.shape[-1]]
+    )  # a.shape[-1] to determine the number of valid moves for each player. It masking out invalid moves, ensuring only the valid moves for each player are selected.
     # NOTE: this may cause instability
     # avg_legal_a = legal_a.sum(2, keepdim=True) / legal_move.sum(2, keepdim=True).clamp(min=0.1)
     # q = v + legal_a - avg_legal_a
@@ -177,7 +188,6 @@ class MultiHeadAttention(torch.jit.ScriptModule):
         q, k, v = qkv.permute((1, 2, 3, 0, 4)).unbind(1)
 
         score = torch.einsum("bhtd,bhsd->bhts", q, k) / self.scale
-        # prod = (q * k).sum(3) / self.scale  # prod: [batch, num_head, seq]
         attn = torch.nn.functional.softmax(score, -1)
         attn_v = torch.einsum("bhts,bhsd->bhtd", attn, v)
         attn_v = attn_v.permute((2, 0, 1, 3)).flatten(start_dim=2)
@@ -210,7 +220,7 @@ class SelfAttention(torch.jit.ScriptModule):
         # compute q_weights
         k_proj = self.k_proj(x).unsqueeze(2)
         prod = (k_proj * attn_v).sum(3) / self.scale
-        q_weight = nn.functional.softmax(prod, 2) # q_weight: [seq, batch, num_head]
+        q_weight = nn.functional.softmax(prod, 2)  # q_weight: [seq, batch, num_head]
         return attn_v, q_weight
 
 
@@ -293,7 +303,6 @@ class MHANet(torch.jit.ScriptModule):
         q = self.fc_v(o) + self.fc_a(o)  # q: [seq, batch, num_head, num_action]
         q = (q * q_weight.unsqueeze(3)).sum(2)
 
-
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
 
         assert q.size() == legal_move.size()
@@ -307,8 +316,6 @@ class MHANet(torch.jit.ScriptModule):
             o = o.squeeze(0)
             q = q.squeeze(0)
         return qa, greedy_action, q, o
-
-
 
 
 class PublicLSTMNet(torch.jit.ScriptModule):
@@ -444,19 +451,30 @@ class LoRALayer(torch.nn.Module):
         x = self.alpha * (x @ self.A @ self.B)
         return x
 
+
 class LinearWithLoRA(torch.nn.Module):
     def __init__(self, linear, rank, alpha):
         super().__init__()
         self.linear = linear
-        self.lora = LoRALayer(
-            linear.in_features, linear.out_features, rank, alpha
-        )
+        self.lora = LoRALayer(linear.in_features, linear.out_features, rank, alpha)
 
     def forward(self, x):
         return self.linear(x) + self.lora(x)
 
+
 class TextLSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer, lm_weights,num_of_player, num_lm_layer,lora_dim):
+    def __init__(
+        self,
+        device,
+        in_dim,
+        hid_dim,
+        out_dim,
+        num_lstm_layer,
+        lm_weights,
+        num_of_player,
+        num_lm_layer,
+        lora_dim,
+    ):
         super().__init__()
         # for backward compatibility
 
@@ -471,7 +489,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         self.num_of_player = num_of_player
 
         if self.out_dim == 1:
-            path = f'action_tokens/5p_action_ids.json'
+            path = f"action_tokens/5p_action_ids.json"
             self.act_toks = self.load_json(path)
         else:
             self.act_toks = torch.zeros(1)
@@ -489,9 +507,11 @@ class TextLSTMNet(torch.jit.ScriptModule):
         # for aux task
         self.pred_1st = nn.Linear(self.hid_dim, 5 * 3)
         self.lm_weights = lm_weights
-        self.call_transformer = self.load_transformers(pretrained_model_name="cross-encoder/ms-marco-TinyBERT-L-2-v2")
+        self.call_transformer = self.load_transformers(
+            pretrained_model_name="cross-encoder/ms-marco-TinyBERT-L-2-v2"
+        )
 
-    def create_mlp(self,input_dim, hidden_dim, output_dim, num_layers):
+    def create_mlp(self, input_dim, hidden_dim, output_dim, num_layers):
         layers = []
         layers.append(nn.Linear(input_dim, hidden_dim))
         layers.append(nn.ReLU())
@@ -504,16 +524,20 @@ class TextLSTMNet(torch.jit.ScriptModule):
 
     def load_transformers(self, pretrained_model_name):
         pretrained_config = BertConfig.from_pretrained(pretrained_model_name)
-        model = BertModel.from_pretrained(pretrained_model_name, config=pretrained_config)
+        model = BertModel.from_pretrained(
+            pretrained_model_name, config=pretrained_config
+        )
 
-        if self.lm_weights=="random":
+        if self.lm_weights == "random":
+
             def reset_parameters(module):
-                if hasattr(module, 'weight') and module.weight is not None:
+                if hasattr(module, "weight") and module.weight is not None:
                     torch.nn.init.normal_(module.weight)
-                if hasattr(module, 'bias') and module.bias is not None:
+                if hasattr(module, "bias") and module.bias is not None:
                     torch.nn.init.constant_(module.bias, 0)
+
             model.apply(reset_parameters)
-        elif self.lm_weights=="lora":
+        elif self.lm_weights == "lora":
             for param in model.parameters():
                 param.requires_grad = False
             lora_alpha = 16
@@ -550,10 +574,12 @@ class TextLSTMNet(torch.jit.ScriptModule):
         model.to(self.device)
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
-        print('params lora', params)
+        print("params lora", params)
         tokenizer = BertTokenizer.from_pretrained(pretrained_model_name)
-        dummy_input = tokenizer("Hello, this is a TorchScript test", return_tensors='pt')
-        input_ids = dummy_input['input_ids'].to(self.device)
+        dummy_input = tokenizer(
+            "Hello, this is a TorchScript test", return_tensors="pt"
+        )
+        input_ids = dummy_input["input_ids"].to(self.device)
 
         traced_model = torch.jit.trace(model, input_ids, strict=False)
         return traced_model
@@ -575,12 +601,15 @@ class TextLSTMNet(torch.jit.ScriptModule):
     def load_json(self, path):
         with open(path) as f:
             d = json.load(f)
-        return torch.tensor(d['input_ids'],device=self.device)
+        return torch.tensor(d["input_ids"], device=self.device)
 
     @torch.jit.script_method
     def get_h0(self, batchsize: int) -> Dict[str, torch.Tensor]:
         shape = (self.num_lstm_layer, batchsize, self.hid_dim)
-        hid = {"h0": torch.zeros(*shape).to(self.device), "c0": torch.zeros(*shape).to(self.device)}
+        hid = {
+            "h0": torch.zeros(*shape).to(self.device),
+            "c0": torch.zeros(*shape).to(self.device),
+        }
         return hid
 
     @torch.jit.script_method
@@ -594,12 +623,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
 
         with torch.no_grad():
             x = self.call_transformer(priv_s)
-            x = x['last_hidden_state'].mean(dim=1).unsqueeze(0)
-            o, (h, c) = self.state_lstm(x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device)))
+            x = x["last_hidden_state"].mean(dim=1).unsqueeze(0)
+            o, (h, c) = self.state_lstm(
+                x, (hid["h0"].to(priv_s.device), hid["c0"].to(priv_s.device))
+            )
             o = o[-1, :, :]
             if self.out_dim == 1:
                 a = self.call_transformer(self.act_toks)
-                o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
+                o_action = a["last_hidden_state"].mean(dim=1).unsqueeze(0)
                 o = o_action * o.unsqueeze(1)
 
             a = self.fc_a(o)
@@ -620,16 +651,14 @@ class TextLSTMNet(torch.jit.ScriptModule):
             priv_s.dim() == 3 or priv_s.dim() == 2
         ), "dim = 3/2, [seq_len(optional), batch, dim]"
 
-
         one_step = False
         priv_s = priv_s.to(self.device)
         seq_len, num_words, batch = priv_s.size()
         priv_s = priv_s.transpose(1, 2)
         priv_s = priv_s.reshape(-1, priv_s.shape[-1])
 
-
         out = self.call_transformer(priv_s)
-        x = out['last_hidden_state'].mean(dim=1).reshape(seq_len, batch, -1)
+        x = out["last_hidden_state"].mean(dim=1).reshape(seq_len, batch, -1)
         hid = self.get_h0(x.shape[-2])
         if len(hid) == 0:
             o, _ = self.state_lstm(x)
@@ -637,13 +666,15 @@ class TextLSTMNet(torch.jit.ScriptModule):
             o, _ = self.state_lstm(x, (hid["h0"], hid["c0"]))
         if self.out_dim == 1:
             a = self.call_transformer(self.act_toks)
-            o_action = a['last_hidden_state'].mean(dim=1).unsqueeze(0)
+            o_action = a["last_hidden_state"].mean(dim=1).unsqueeze(0)
             o_action = o_action.unsqueeze(0)
             o_action = o_action * o.unsqueeze(2)
             a = self.fc_a(o_action).view(legal_move.size())
         else:
             o_action = o
-            a = self.fc_a(o_action).view(legal_move.shape[0], legal_move.shape[1], self.out_dim)
+            a = self.fc_a(o_action).view(
+                legal_move.shape[0], legal_move.shape[1], self.out_dim
+            )
 
         v = self.fc_v(o).view(legal_move.shape[0], legal_move.shape[1], 1)
         q = duel(v, a, legal_move)
@@ -653,7 +684,7 @@ class TextLSTMNet(torch.jit.ScriptModule):
         qa = q.gather(2, action.unsqueeze(2)).squeeze(2)
 
         # assert q.size() == legal_move.size()
-        legal_q = (1 + q - q.min()) * legal_move[:, :, :q.shape[-1]]
+        legal_q = (1 + q - q.min()) * legal_move[:, :, : q.shape[-1]]
         # greedy_action: [seq_len, batch]
         greedy_action = legal_q.argmax(2).detach()
 
