@@ -192,6 +192,16 @@ scripts/launch_cross_play.sh
 
 ```
 
+## Download Pre-trained Models
+
+Before running any evaluations, download the pre-trained models by executing the following:
+
+```bash
+wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1XEUZKcF2pbQhAfgrlvfAQeg7-MZ1zGTb' -O pretrained_models.zip
+unzip pretrained_models.zip -d models/
+```
+⚠️ Note: After downloading the models, make sure to update the checkpoint paths in the evaluation scripts to point to the correct directories under models/.
+
 ## Additional Comments:
 
 `HanabiState::ToText()` converts the game's current state into a human-readable format, providing details on tokens, fireworks, and player hands. [Reference](https://github.com/chandar-lab/Zeroshot_hanabi_instructrl/blob/312366b3038159c8a68476cf44afd0ae609ff26c/hanabi-learning-environment/hanabi_lib/hanabi_state.cc#L393)
