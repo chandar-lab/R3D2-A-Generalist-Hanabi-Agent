@@ -194,12 +194,8 @@ scripts/launch_cross_play.sh
 
 ## Download Pre-trained Models
 
-Before running any evaluations, download the pre-trained models by executing the following:
+Before running any evaluations, download the pre-trained models from this [link](https://drive.google.com/file/d/13BjnRiDscOQQZDpfo4kGWe9-2uqklrZv/view?usp=sharing):
 
-```bash
-wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1XEUZKcF2pbQhAfgrlvfAQeg7-MZ1zGTb' -O pretrained_models.zip
-unzip pretrained_models.zip -d models/
-```
 ⚠️ Note: After downloading the models, make sure to update the checkpoint paths in the evaluation scripts to point to the correct directories under models/.
 
 ## Additional Comments:
