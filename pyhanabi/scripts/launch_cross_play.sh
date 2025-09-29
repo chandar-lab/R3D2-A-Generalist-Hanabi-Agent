@@ -1,17 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=short-unkillable
-#SBATCH --cpus-per-task=24
-#SBATCH --gres=gpu:2
-#SBATCH --mem=48G
-#SBATCH --time=1:59:00
-#SBATCH -o ${SCRATCH}/final_hanabi_checkpoint/eval_logs/cool_job-%j.out
 
 # Load necessary modules (if any)
 module load libffi
 module load OpenSSL/1.1
 module load cuda/11.8
 
-source ~/scratch/r3d3_hanabi/bin/activate
+source ~/scratch/r3d2_hanabi/bin/activate
 
 # Constants
 num_player=2
